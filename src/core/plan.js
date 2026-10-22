@@ -118,7 +118,7 @@ function buildWeek(prefs, date, maxHr) {
   const hardKm = Object.values(hard).reduce((s, t) => s + sizes[t], 0);
   const easyKm = easyDays.length ? Math.max(2.5, halfKm((target.km - longKm - hardKm) / easyDays.length)) : 0;
   const plannedKm = longKm + hardKm + easyKm * easyDays.length;
-  if (plannedKm > target.km * 1.15) notes.push(`${plannedKm} km planned vs a ${target.km} km build target, set by your recent long run; keep the easy runs genuinely easy`);
+  if (plannedKm > target.km * 1.15) notes.push(`${plannedKm} km planned, above the build target of ${target.km} km because your recent long run sets the long-run distance; keep the easy runs genuinely easy`);
 
   const z2 = Math.round(0.7 * maxHr);
   const t1 = Math.round(0.85 * maxHr);

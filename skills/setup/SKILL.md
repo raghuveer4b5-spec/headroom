@@ -72,6 +72,10 @@ Use the scheduled-task tool available in this app to create, or update if it alr
 
 > Scheduled run: use the headroom:readiness skill to run my morning check. Follow the notify setting in ~/.headroom/config.json. Don't ask for feedback.
 
+If the user chose email delivery and has a plan, also create (or update) a weekly task named **Headroom weekly plan** for Sunday at 19:00 local time, with this prompt:
+
+> Scheduled run: use the headroom:readiness skill to send my weekly plan email. Don't ask for feedback.
+
 If no scheduling tool is available, say so, and tell the user they can ask Claude for "my readiness" each morning instead.
 
 Scheduled runs are unattended, so any permission prompt stops them. Tell the user to open the task and click **Run now** once while at the computer, and to choose "always allow" for connect.garmin.com in Claude in Chrome. Push notifications only reach their phone while Remote Control is on.

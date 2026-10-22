@@ -1,43 +1,50 @@
 # Headroom
 
-**A morning check-in that tells you how hard to train today, and why.** Headroom reads the recovery data your watch already records, scores it against your own normal, and emails you a readiness score with today's workout from a running plan built around your strength days. It runs on your own Claude, against your own Garmin account. No app, no server, no account to create.
+**A running plan built around your gym days, adjusted every morning to how recovered you are.**
 
-<p align="center">
-  <img src="docs/email-preview.png" width="360" alt="A Headroom morning email: readiness 64, Moderate, with today's workout (easy 2.5 km in Zone 2), bars showing what shaped the score, and the week's plan with Thursday highlighted">
-  <br>
-  <sub>The morning email, shown with sample data.</sub>
-</p>
+Tell Headroom your goal, how often you run and which days you lift. Every Sunday it emails you next week's plan. Every morning it checks your watch's recovery data and tells you whether to run that day as planned, ease off, or rest. It runs on your own Claude against your own Garmin account: no app, no server, no account to create.
 
-## Why this exists
+<table>
+  <tr>
+    <td align="center" valign="top" width="50%">
+      <img src="docs/weekly-preview.png" width="320" alt="Headroom weekly plan email: 14.5 km across 3 runs and 3 strength days, with each day's session, a runner strength block, and how the week adapts">
+      <br><sub><b>Sunday:</b> next week's plan</sub>
+    </td>
+    <td align="center" valign="top" width="50%">
+      <img src="docs/email-preview.png" width="320" alt="Headroom morning email: readiness 64, Moderate, today's easy run, what shaped the score, and the week with Thursday highlighted">
+      <br><sub><b>Every morning:</b> readiness and today's session</sub>
+    </td>
+  </tr>
+</table>
+<p align="center"><sub>Both shown with sample data.</sub></p>
 
-Most running injuries aren't accidents. They're overuse: the body's tendons, bones and muscles get more work than they've adapted to, usually for a few weeks in a row, and something gives. The pattern is familiar to anyone who has trained for a race. A good few weeks, a jump in distance, a hard session on a short night's sleep, and then a sore Achilles that takes a month to settle.
+## Why: injuries come from load that outpaces recovery
 
-The warning signs tend to show up in data before they show up as pain:
+Most running injuries are overuse. They build over weeks, and the warning signs show up in data before they show up as pain:
 
-- **Load climbing faster than you've adapted to it.** In a study of novice runners, those who increased weekly distance by more than 30% over two weeks appeared more vulnerable to distance-related injuries than those who stayed under 10% ([Nielsen et al., 2014](https://pubmed.ncbi.nlm.nih.gov/25155475/); the effect was borderline, but it's the origin of much of the "10% rule" thinking). The wider idea, comparing the last week's load with your recent average (the acute:chronic ratio), comes from sports science work on load and injury ([Gabbett, 2016](https://pubmed.ncbi.nlm.nih.gov/26758673/)).
-- **Recovery that hasn't caught up.** Overnight heart rate variability (HRV) dropping below your own normal, and resting heart rate creeping up, are signs your body is still dealing with the last few days. Training that follows HRV, going hard when it's normal and easing off when it's suppressed, has produced the same or better fitness gains as a fixed plan ([Vesterinen et al., 2016](https://pubmed.ncbi.nlm.nih.gov/26909534/)).
-- **Short sleep.** Adolescent athletes sleeping under 8 hours had a higher injury rate than those who slept more ([Milewski et al., 2014](https://pubmed.ncbi.nlm.nih.gov/25028798/)).
+- **Distance jumps.** Novice runners who added more than 30% in two weeks were more vulnerable to injury than those who stayed under 10% ([Nielsen et al., 2014](https://pubmed.ncbi.nlm.nih.gov/25155475/)).
+- **Load spikes against your recent average** ([Gabbett, 2016](https://pubmed.ncbi.nlm.nih.gov/26758673/)).
+- **Recovery that hasn't caught up:** HRV below your normal, resting heart rate creeping up. Training that follows HRV matched or beat a fixed plan ([Vesterinen et al., 2016](https://pubmed.ncbi.nlm.nih.gov/26909534/)).
+- **Short sleep:** athletes sleeping under 8 hours were injured more often ([Milewski et al., 2014](https://pubmed.ncbi.nlm.nih.gov/25028798/)).
 
-Higher-end watches turn these signals into a single daily number (Garmin calls it Training Readiness). Many good watches, such as the Forerunner 165, record every input but never combine them. Headroom does that combining, and then does the one thing a number alone doesn't: it changes what you're told to do today.
+So Headroom does two things. **The plan** keeps load in check: about 10% more a week, a lighter fourth week, hard runs 48 hours apart and away from the day after the gym. **The morning check** catches the days your body hasn't recovered and makes them easier.
 
-**What it is honest about:** no score prevents injuries. Headroom flags the conditions that make them more likely, so you can ease off on the days that matter. The acute:chronic ratio is a useful rule of thumb, not a law (its predictive power has been questioned, e.g. [Impellizzeri et al., 2020](https://pubmed.ncbi.nlm.nih.gov/32502973/)), and the weights in the score are a reasoned starting point, tuned with your own feedback over time.
+No score prevents injuries, and the acute:chronic ratio has its critics ([Impellizzeri et al., 2020](https://pubmed.ncbi.nlm.nih.gov/32502973/)). Headroom flags the conditions that make injury more likely, so you ease off on the days that matter.
 
-## What you get each morning
+## What you get
 
-An email (and optionally a push notification) at the time you choose:
+**Sunday evening: the plan.** Next week's sessions in full: distances, warm-ups, intervals, heart-rate targets, which days include strength training, and a 12-minute bodyweight runner-strength block (calves, glutes, core). Your gym sessions are a black box: Headroom only asks which days you train, never what you do there.
 
-1. **Readiness score, 0-100**, coloured by band, with one line on how to approach today.
-2. **Today's workout**, taken from your plan and adjusted to the score. On a Low day, intervals become an easy run and the long run gets shorter. On a Poor day, it's rest. The email shows what was planned so you can see what changed.
-3. **What shaped the score**: HRV, sleep, training load, resting HR and Body Battery, each against your own 30-day normal, and the one or two things holding you back.
-4. **This week at a glance**, with today highlighted.
-
-If the check can't run (your watch hasn't synced, or the Garmin session expired), you still get a short email saying so. No email means the run itself didn't happen.
+**Every morning: the check.** A readiness score from 0 to 100, today's session adjusted to it (on a Low day intervals become an easy run and the long run gets shorter; on a Poor day it's rest), what shaped the score, and the week with today highlighted. If the check can't run, because your watch hasn't synced or the Garmin session expired, you still get a short email saying so.
 
 ## The workflow
 
 ```mermaid
 flowchart TD
-    A[Setup questionnaire<br/>time, delivery, max HR,<br/>goal, runs/week, long-run day,<br/>strength days, priority] --> B[~/.headroom/config.json<br/>+ daily scheduled task]
+    A[Setup questionnaire<br/>time, delivery, max HR,<br/>goal, runs/week, long-run day,<br/>strength days, priority] --> B[~/.headroom/config.json<br/>+ Sunday and daily scheduled tasks]
+    B --> W[Sunday evening]
+    W --> X[Build next week's plan<br/>around your strength days]
+    X --> Y[Email the weekly plan<br/>tools/weekly.js]
     B --> C[Every morning at your time]
     C --> D[Claude opens Garmin Connect<br/>in your signed-in Chrome]
     D --> E[headroom-garmin.js runs in the page:<br/>reads HRV, resting HR, sleep,<br/>Body Battery, activities]
@@ -49,7 +56,6 @@ flowchart TD
     I --> J[Render the email<br/>tools/email.js]
     J --> K[Send to your inbox via Gmail]
     K --> L[Log to ~/.headroom/history.jsonl]
-    L --> M[Weekly: volume builds ~10%,<br/>every 4th week is lighter]
 ```
 
 ### 1. Setup (once, about two minutes)
@@ -59,13 +65,17 @@ Ask Claude to **set up Headroom**. It looks at your last 90 days of Garmin data 
 - **The morning check:** what time, how to reach you (email, push or both), whether to notify every morning or only on Low or Poor days, and your max heart rate (it suggests the highest from your recent activities).
 - **Your training:** goal (5K, 10K, half marathon or general fitness), runs per week, long-run day, which days you do strength training, and whether running, strength or neither comes first.
 
-It saves your answers, shows you the week's plan, schedules the daily check and runs it once so you see a real email straight away.
+It saves your answers, shows you the week's plan, schedules the Sunday plan email and the daily check, and runs the check once so you see a real email straight away.
 
-### 2. Every morning
+### 2. Sunday evening
+
+Headroom builds next week from your config and emails it. This step doesn't touch Garmin or your browser, so it runs even if your Garmin session has expired.
+
+### 3. Every morning
 
 The scheduled task opens Garmin Connect in your browser, runs the Headroom script in the page and reads only what it needs. The score and the plan are calculated by tested code; Claude runs it and delivers the result exactly as rendered, so the numbers can't drift or be made up. The whole run takes a few minutes and closes its tab when it's done.
 
-### 3. Over the weeks
+### 4. Over the weeks
 
 Each run is logged. When you check in with Claude yourself, it asks whether the score matched how you felt. That 👍/👎 log is what the weights get tuned against. Your weekly distance builds by about 10% a week from where you actually are, with a lighter week every fourth week.
 
@@ -126,13 +136,15 @@ There's no Headroom server. Your Garmin data goes from Garmin to your browser to
 ## Under the hood
 
 ```
-skills/setup        questionnaire → config, plan preview, schedule
-skills/readiness    morning check, backtest, weekly plan
+skills/setup               questionnaire → config, plan preview, schedule
+skills/readiness           morning check, backtest, weekly plan email
 src/adapters/              Garmin (browser session) → common data format
 src/core/readiness.js      the score
 src/core/plan.js           weekly plan + today's session
 src/email/render.js        the morning email (email-safe HTML + plain text)
-tools/                     build, score, plan, email, preview
+src/email/weekly.js        the Sunday plan email
+src/email/style.js         shared email layout
+tools/                     build, score, plan, email, weekly, preview
 ```
 
 The core never talks to Garmin directly. Adapters turn each source into one common format, so adding another source (such as the Google Health API for Fitbit and Pixel Watch) means writing an adapter, not touching the score or the plan:
@@ -157,11 +169,12 @@ The core never talks to Garmin directly. Adapters turn each source into one comm
 Every field except `date` and `start` is optional.
 
 ```bash
-npm test                                  # 35 tests, synthetic data only
+npm test                                  # 42 tests, synthetic data only
 npm run build                             # bundle src/ into the page script
 node tools/score.js data.json --backtest 30
 node tools/plan.js                        # this week's plan from your config
 node tools/email.js result.json           # render a morning email
+node tools/weekly.js                      # render next week's plan email
 ```
 
 ## Known limits

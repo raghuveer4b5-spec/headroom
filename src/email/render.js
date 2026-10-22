@@ -2,19 +2,9 @@
 // no images or scripts) and a plain-text alternative. Pure function of the morning result + config.
 const { buildWeek, todaySession, shortLabel, weekdayOf, WEEKDAYS } = require('../core/plan');
 const { addDays, round } = require('../core/stats');
+const { INK, MUTED, FONT, esc, longDate, card, label, page } = require('./style');
 
 const BAND_COLOR = { High: '#1D9E75', Moderate: '#BA7517', Low: '#D85A30', Poor: '#A32D2D' };
-const INK = '#1F2328';
-const MUTED = '#6B7280';
-const LINE = '#E5E7EB';
-const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
-
-const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-
-function longDate(date) {
-  const [y, m, d] = date.split('-').map(Number);
-  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
-}
 
 function hours(h) {
   const whole = Math.floor(h);
@@ -98,10 +88,6 @@ function renderEmail(result, config = {}) {
     : 'Headroom estimate from your Garmin data';
   const preheader = today ? `Today: ${today.short}.` : result.suggestion || '';
 
-  const card = (inner, extra = '') =>
-    `<tr><td style="padding:0 0 12px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#FFFFFF" style="background:#FFFFFF;border:1px solid ${LINE};border-radius:12px${extra}"><tr><td style="padding:20px 18px">${inner}</td></tr></table></td></tr>`;
-  const label = (t) => `<p style="margin:0 0 10px;font-size:12px;letter-spacing:.04em;color:${MUTED};font-weight:600">${t}</p>`;
-
   const hero = card(`<table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
 <td width="84" valign="middle"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td width="72" height="72" align="center" valign="middle" bgcolor="${color}" style="width:72px;height:72px;border-radius:36px;background:${color};color:#FFFFFF;font-size:30px;font-weight:700;text-align:center">${result.score}</td></tr></table></td>
 <td valign="middle" style="padding-left:12px"><p style="margin:0;font-size:22px;font-weight:700;color:${color}">${esc(result.band)}</p>
@@ -149,15 +135,12 @@ function renderEmail(result, config = {}) {
     week = card(`${label(`THIS WEEK · WEEK ${w.week}${w.recoveryWeek ? ' (LIGHTER)' : ''} · ${round(w.weekTargetKm, 1)} KM`)}<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>${cells}</tr></table>`);
   }
 
-  const html = `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"></head>
-<body style="margin:0;padding:0;background:#F3F4F6">
-<div style="display:none;max-height:0;overflow:hidden;opacity:0">${esc(preheader)}</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F3F4F6;font-family:${FONT}"><tr><td align="center" style="padding:24px 12px">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px">
-<tr><td style="padding:0 4px 14px"><p style="margin:0;font-size:13px;color:${MUTED}"><strong style="color:${INK}">Headroom</strong> · ${esc(longDate(date))}</p></td></tr>
-${hero}${workout}${why}${week}
-<tr><td style="padding:6px 4px 0"><p style="margin:0;font-size:11px;line-height:1.6;color:#9CA3AF">An estimate for training decisions, not medical advice. To change the time, notifications or your plan, ask Claude to set up Headroom again.</p></td></tr>
-</table></td></tr></table></body></html>`;
+  const html = page({
+    preheader,
+    dateLine: longDate(date),
+    body: `${hero}${workout}${why}${week}`,
+    footer: 'An estimate for training decisions, not medical advice. To change the time, notifications or your plan, ask Claude to set up Headroom again.',
+  });
 
   const textLines = [
     `Readiness ${result.score} · ${result.band} (${fromDevice ? result.source : 'Headroom estimate'})`,

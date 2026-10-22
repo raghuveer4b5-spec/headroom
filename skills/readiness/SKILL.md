@@ -56,6 +56,14 @@ Same steps 0-4, but call `await Headroom.backtest({ days: 60, config: { maxHr: <
 
 Present it as a short summary: how many High/Moderate/Low/Poor days, the lowest and highest days, and whether hard sessions and personal bests fell on high-scoring days. Don't claim the score is validated from one backtest; say what the pattern suggests.
 
+## Weekly plan email
+
+Sent on Sunday evening for the week starting the next day. It needs only the config, not Garmin data or Chrome.
+
+1. Read `~/.headroom/config.json`. If it has no `plan` or no `email`, stop and say setup is needed.
+2. From the plugin root, run `node tools/weekly.js` (add `--date YYYY-MM-DD` for a different week).
+3. Read `~/.headroom/weekly.json` and send it with the Gmail send tool: `to` = the config's `email` only, `subject`, `htmlBody` = `html`, `body` = `text`. Send it exactly as rendered.
+
 ## This week's plan
 
 When the user asks for their plan or week, run `Headroom.planWeek({ config })` (no Garmin data needed; any tab works once the script is loaded), or `node tools/plan.js` from the plugin root. Show it as a table: day, run, strength. The plan only schedules strength days; never suggest specific lifts beyond the runner-strength block.
