@@ -1,0 +1,9 @@
+{
+  "name": "splits",
+  "displayName": "Splits",
+  "version": "0.1.0",
+  "description": "A daily training readiness score for watches that don't have one, run by your own Claude on your own Garmin data.",
+  "author": { "name": "Raghuveer" },
+  "license": "MIT",
+  "keywords": ["running", "garmin", "readiness", "hrv", "training"]
+}

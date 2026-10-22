@@ -1,0 +1,14 @@
+{
+  "name": "splits",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Training readiness score for watches that don't have one, run by your own AI agent on your own data.",
+  "license": "MIT",
+  "scripts": {
+    "build": "node tools/build.js",
+    "test": "node --test \"test/*.test.js\""
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

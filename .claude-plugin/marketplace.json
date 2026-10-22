@@ -1,0 +1,12 @@
+{
+  "name": "splits",
+  "owner": { "name": "Raghuveer" },
+  "description": "Splits: AI running coach plugins that run on your own data.",
+  "plugins": [
+    {
+      "name": "splits",
+      "source": "./",
+      "description": "A daily training readiness score for watches that don't have one, run by your own Claude on your own Garmin data."
+    }
+  ]
+}

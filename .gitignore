@@ -1,0 +1,5 @@
+node_modules/
+.DS_Store
+# Real health data never goes in the repo.
+data/
+*.local.json

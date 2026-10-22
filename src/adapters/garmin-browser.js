@@ -1,0 +1,133 @@
+// Runs inside a logged-in connect.garmin.com tab. Uses the same JSON endpoints the
+// Garmin Connect web app calls, with the user's own session. Read-only.
+const { addDays } = require('../core/stats');
+
+async function gget(path) {
+  const token = document.querySelector('meta[name="csrf-token"]')?.content;
+  const res = await fetch(`/gc-api${path}`, {
+    credentials: 'include',
+    headers: { 'connect-csrf-token': token, accept: 'application/json' },
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+function ranges(start, end, size = 28) {
+  const out = [];
+  for (let s = start; s <= end; s = addDays(s, size)) {
+    const e = addDays(s, size - 1);
+    out.push([s, e < end ? e : end]);
+  }
+  return out;
+}
+
+function dateList(start, end) {
+  const out = [];
+  for (let d = start; d <= end; d = addDays(d, 1)) out.push(d);
+  return out;
+}
+
+async function inBatches(items, size, fn) {
+  const results = [];
+  for (let i = 0; i < items.length; i += size) {
+    results.push(...(await Promise.all(items.slice(i, i + size).map(fn))));
+  }
+  return results;
+}
+
+function wakeLevel(values, sleepEndGmt) {
+  const points = (values || []).filter((p) => Array.isArray(p) && typeof p[1] === 'number');
+  if (!points.length) return null;
+  if (sleepEndGmt) {
+    const after = points.find((p) => p[0] >= sleepEndGmt - 30 * 60000);
+    if (after) return after[1];
+  }
+  return Math.max(...points.map((p) => p[1]));
+}
+
+async function fetchCommon({ startDate, endDate, sleepFrom }) {
+  if (!location.hostname.endsWith('connect.garmin.com')) {
+    throw new Error('Open connect.garmin.com in this tab first.');
+  }
+  const days = new Map();
+  const day = (date) => {
+    if (!days.has(date)) days.set(date, { date });
+    return days.get(date);
+  };
+  const warnings = [];
+  const safe = (p, label) => p.catch((e) => { warnings.push(`${label}: ${e.message}`); return null; });
+
+  for (const [s, e] of ranges(startDate, endDate)) {
+    const hrv = await safe(gget(`/hrv-service/hrv/daily/${s}/${e}`), 'hrv');
+    for (const x of hrv?.hrvSummaries || []) {
+      Object.assign(day(x.calendarDate), {
+        hrvLastNight: x.lastNightAvg ?? null,
+        hrvWeeklyAvg: x.weeklyAvg ?? null,
+        hrvStatus: x.status ?? null,
+        hrvBalancedLow: x.baseline?.balancedLow ?? null,
+        hrvBalancedHigh: x.baseline?.balancedUpper ?? null,
+      });
+    }
+    const rhr = await safe(gget(`/usersummary-service/stats/heartRate/daily/${s}/${e}`), 'rhr');
+    for (const x of rhr || []) {
+      if (typeof x.values?.restingHR === 'number') day(x.calendarDate).restingHr = x.values.restingHR;
+    }
+  }
+
+  const profile = await safe(gget('/userprofile-service/socialProfile'), 'profile');
+  const sleepEnd = {};
+  if (profile?.displayName) {
+    const name = encodeURIComponent(profile.displayName);
+    await inBatches(dateList(sleepFrom, endDate), 6, async (date) => {
+      const j = await safe(gget(`/wellness-service/wellness/dailySleepData/${name}?date=${date}&nonSleepBufferMinutes=60`), `sleep ${date}`);
+      const dto = j?.dailySleepDTO;
+      if (!dto || !dto.sleepTimeSeconds) return;
+      Object.assign(day(date), {
+        sleepSeconds: dto.sleepTimeSeconds,
+        sleepScore: dto.sleepScores?.overall?.value ?? null,
+      });
+      sleepEnd[date] = dto.sleepEndTimestampGMT || null;
+    });
+  }
+
+  for (const [s, e] of ranges(sleepFrom, endDate)) {
+    const bb = await safe(gget(`/wellness-service/wellness/bodyBattery/reports/daily?startDate=${s}&endDate=${e}`), 'bodyBattery');
+    for (const x of bb || []) {
+      const level = wakeLevel(x.bodyBatteryValuesArray, sleepEnd[x.date]);
+      if (level !== null) day(x.date).bodyBatteryWake = level;
+    }
+  }
+
+  const activities = [];
+  for (let offset = 0; offset < 1000; offset += 100) {
+    const page = await safe(
+      gget(`/activitylist-service/activities/search/activities?startDate=${startDate}&endDate=${endDate}&limit=100&start=${offset}`),
+      'activities',
+    );
+    for (const a of page || []) {
+      const zones = [1, 2, 3, 4, 5].map((i) => a[`hrTimeInZone_${i}`]);
+      activities.push({
+        start: String(a.startTimeLocal).replace(' ', 'T'),
+        type: a.activityType?.typeKey || 'unknown',
+        durationS: Math.round(a.duration || 0),
+        distanceM: Math.round(a.distance || 0),
+        avgHr: a.averageHR ?? null,
+        maxHr: a.maxHR ?? null,
+        aerobicTe: a.aerobicTrainingEffect ?? null,
+        label: a.trainingEffectLabel ?? null,
+        zoneSeconds: zones.some((z) => typeof z === 'number') ? zones.map((z) => Math.round(z || 0)) : null,
+      });
+    }
+    if (!page || page.length < 100) break;
+  }
+
+  return {
+    source: 'garmin',
+    days: [...days.values()].sort((a, b) => (a.date < b.date ? -1 : 1)),
+    activities,
+    warnings,
+  };
+}
+
+module.exports = { fetchCommon, wakeLevel };
