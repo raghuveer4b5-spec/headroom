@@ -41,6 +41,22 @@ Grounded in research on training load, HRV and injury. [See how it works](docs/h
 
 Already have Garmin Training Readiness on your watch? Headroom uses it.
 
+## New to running? Start from zero
+
+<img src="docs/beginner-preview.png" width="250" align="right" alt="Beginner plan email: stage 6 of 14, run 5 minutes and walk 1.5 minutes, three sessions around three gym days">
+
+Can't run 2K yet? Beginner mode takes you from short run/walk intervals to 30 minutes non-stop, about a 5K for most new runners.
+
+- **14 small stages.** Your longest run never grows more than 50% in one step. No sudden jumps.
+- **You move up when you're ready, not when the calendar says.** Each Sunday, Headroom looks at your runs and recovery and moves you up a stage or repeats it. Repeating is normal.
+- **Gentler after an injury.** A recent injury means a lower starting point and more caution about moving up.
+- **Strength work built in.** Two short bodyweight sessions a week, the best-supported way to prevent running injuries.
+
+Set up once, and Headroom picks your starting stage from how long you can run today.
+
+<br clear="right">
+
+
 ## Get started
 
 You'll need Claude (the desktop app or Claude Code) with Claude in Chrome and Gmail connected, and a Garmin watch.

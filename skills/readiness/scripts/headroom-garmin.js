@@ -41,6 +41,10 @@ const cfg = resolveConfig(config, data.activities);
 const r = computeReadiness(data, d, cfg);
 const today = cfg.plan ? todaySession(cfg.plan, d, r.status === 'ok' ? r.band : null, cfg.maxHr) : null;
 const message = today ? `${r.message} Today: ${today.suggestion}.` : r.message;
+const runs7d = data.activities.filter((a) => {
+const ago = daysBetween(a.start.slice(0, 10), d);
+return a.type.includes('running') && ago >= 1 && ago <= 7;
+}).length;
 return paged(JSON.stringify({
 date: r.date,
 status: r.status,
@@ -51,6 +55,7 @@ estimateScore: r.estimateScore,
 message,
 suggestion: r.suggestion,
 limiters: r.limiters,
+runs7d,
 today: today && { week: today.week, weekTargetKm: today.weekTargetKm, recoveryWeek: today.recoveryWeek, changed: today.changed, accessory: today.accessory, notes: today.notes },
 components: r.components,
 inputs: r.inputs,
@@ -374,6 +379,7 @@ module.exports = { activityLoad, isHard, loadSummary, ratioScore, observedMaxHr 
 'core/plan.js': function (module, exports, __req) {
 const { daysBetween, clamp } = __req('core/stats.js');
 const { planPaces, formatPace } = __req('core/pace.js');
+const { stageOf, describe, LAST } = __req('core/beginner.js');
 const WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const PEAK_KM = { '5k': 25, '10k': 35, half: 45, fitness: 25 };
 const LONG_CAP_KM = { '5k': 10, '10k': 14, half: 20, fitness: 10 };
@@ -397,6 +403,7 @@ const [first, ...rest] = items;
 return [...combinations(rest, k - 1).map((c) => [first, ...c]), ...combinations(rest, k)];
 }
 function hardTarget(runCount, priority, targetKm) {
+if (priority === 'beginner') return 0;
 let count = runCount >= 4 ? 2 : runCount === 3 ? 1 : 0;
 if (priority === 'lifting' || (targetKm && targetKm < 15)) count = Math.min(count, 1);
 return count;
@@ -458,7 +465,39 @@ let build = Math.min(peak, Math.max(10, prefs.baseWeeklyKm || 10));
 for (let w = 1; w <= week; w++) if (w % 4 !== 3) build = Math.min(peak, build * 1.1);
 return { week: week + 1, km: halfKm(week % 4 === 3 ? build * 0.8 : build), recovery: week % 4 === 3 };
 }
+function buildBeginnerWeek(prefs, date) {
+const liftDays = prefs.liftDays || [];
+const longRunDay = prefs.longRunDay || 'sat';
+const runsPerWeek = Math.min(3, Math.max(2, prefs.runsPerWeek || 3));
+const runDays = prefs.runDays || chooseRunDays({ runsPerWeek, longRunDay, liftDays, priority: 'beginner' });
+const stage = stageOf(prefs);
+const session = describe(stage);
+const easier = describe(Math.max(1, stage - 1));
+const week = Math.max(0, Math.floor(daysBetween(prefs.startDate || date, date) / 7)) + 1;
+const accessoryDays = [...WEEKDAYS.filter((d) => liftDays.includes(d)), ...runDays]
+.filter((d, i, all) => all.indexOf(d) === i)
+.slice(0, 2);
+const days = {};
+for (const d of WEEKDAYS) {
+const run = runDays.includes(d)
+? { type: 'runwalk', km: null, minutes: session.runMinutes, text: session.text, short: session.short, easierText: easier.text, easierShort: easier.short }
+: null;
+days[d] = { run, strength: liftDays.includes(d), accessory: accessoryDays.includes(d) };
+}
+return {
+week,
+targetKm: null,
+recovery: false,
+runDays,
+days,
+notes: [],
+text: {},
+paces: null,
+beginner: { stage, of: LAST, title: session.title, short: session.short, runMinutes: session.runMinutes, graduated: Boolean(prefs.graduated) },
+};
+}
 function buildWeek(prefs, date, maxHr) {
+if (prefs.mode === 'beginner') return buildBeginnerWeek(prefs, date);
 const goal = prefs.goal || 'fitness';
 const liftDays = prefs.liftDays || [];
 const longRunDay = prefs.longRunDay || 'sun';
@@ -507,7 +546,9 @@ const RUN_NAMES = { easy: 'Easy', long: 'Long run', intervals: 'Intervals', temp
 function shortLabel(day, band) {
 if (band === 'Poor') return 'Rest';
 const parts = [];
-if (day.run) {
+if (day.run && day.run.type === 'runwalk') {
+parts.push(band === 'Low' ? `Run/walk ${day.run.easierShort} (easier)` : `Run/walk ${day.run.short}`);
+} else if (day.run) {
 const { type, km } = day.run;
 if (band === 'Low') {
 const share = type === 'easy' ? 0.7 : 0.6;
@@ -527,7 +568,12 @@ if (band === 'Poor') {
 parts.push('Rest, or a gentle 20-30 min walk');
 changed = Boolean(day.run || day.strength);
 } else {
-if (day.run) {
+if (day.run && day.run.type === 'runwalk') {
+if (band === 'Low') {
+parts.push(`${day.run.easierText} (last stage's session, an easier day)`);
+changed = true;
+} else parts.push(day.run.text);
+} else if (day.run) {
 const { type, km } = day.run;
 const lowKm = (share) => Math.min(km, Math.max(2, halfKm(km * share)));
 if (band === 'Low' && type !== 'easy') {
@@ -561,6 +607,7 @@ planned: day.run ? day.run.text : null,
 changed,
 accessory: day.accessory && band !== 'Low' && band !== 'Poor' ? ACCESSORY : null,
 notes: week.notes,
+beginner: week.beginner || null,
 };
 }
 module.exports = { WEEKDAYS, weekdayOf, chooseRunDays, assignHard, weeklyTargetKm, buildWeek, todaySession, shortLabel, ACCESSORY };
@@ -628,6 +675,78 @@ function riegel(km, sec, targetKm) {
 return sec * (targetKm / km) ** 1.06;
 }
 module.exports = { DISTANCE_KM, parseTime, formatTime, formatPace, vdotFromRace, paceAt, trainingPaces, planPaces, riegel };
+},
+'core/beginner.js': function (module, exports, __req) {
+const { addDays, daysBetween } = __req('core/stats.js');
+const STAGES = [
+{ reps: 8, run: 60, walk: 90 },
+{ reps: 8, run: 90, walk: 90 },
+{ reps: 6, run: 120, walk: 90 },
+{ reps: 5, run: 180, walk: 90 },
+{ reps: 4, run: 240, walk: 90 },
+{ reps: 4, run: 300, walk: 90 },
+{ reps: 3, run: 420, walk: 90 },
+{ reps: 3, run: 480, walk: 60 },
+{ reps: 2, run: 600, walk: 60 },
+{ reps: 2, run: 720, walk: 60 },
+{ reps: 2, run: 900, walk: 60 },
+{ reps: 1, run: 1200, walk: 0 },
+{ reps: 1, run: 1500, walk: 0 },
+{ reps: 1, run: 1800, walk: 0 },
+];
+const LAST = STAGES.length;
+const START_STAGE = { none: 1, '1min': 1, '3min': 4, '5min': 6, '10min': 9 };
+const mins = (sec) => {
+const m = sec / 60;
+return Number.isInteger(m) ? String(m) : m.toFixed(1);
+};
+function stageOf(prefs) {
+return Math.min(LAST, Math.max(1, Math.round(prefs.stage || 1)));
+}
+function startStage(canRun, injured) {
+const base = START_STAGE[canRun] || 1;
+return Math.max(1, base - (injured ? 1 : 0));
+}
+function describe(n) {
+const s = STAGES[n - 1];
+if (s.reps === 1) {
+return {
+title: `Run ${mins(s.run)} min`,
+short: `${mins(s.run)} min`,
+text: `Run ${mins(s.run)} min non-stop at an easy, talking pace, with a 5 min brisk walk before and after`,
+runMinutes: s.run / 60,
+};
+}
+return {
+title: `Run ${mins(s.run)} min, walk ${mins(s.walk)} min`,
+short: `${s.reps}x${mins(s.run)} min`,
+text: `Run/walk: 5 min brisk walk, then ${s.reps} x (run ${mins(s.run)} min, walk ${mins(s.walk)} min), then 5 min walk. Run easy enough to talk in full sentences`,
+runMinutes: (s.reps * s.run) / 60,
+};
+}
+function decideProgression(history, prefs, nextMonday) {
+const stage = stageOf(prefs);
+if (prefs.repeatNext) return { stage, advance: false, reason: 'You asked to repeat this stage.' };
+const week = (history || []).filter((e) => {
+const ago = daysBetween(e.date, nextMonday);
+return ago >= 1 && ago <= 7;
+});
+if (!week.length) {
+return { stage, advance: false, reason: 'No morning checks last week, so Headroom kept you on this stage.' };
+}
+const lowLimit = prefs.injuryHistory ? 1 : 2;
+const low = week.filter((e) => e.band === 'Low' || e.band === 'Poor').length;
+const latest = [...week].sort((a, b) => (a.date < b.date ? -1 : 1)).pop();
+const runs = latest.runs7d || 0;
+if (runs < 2) {
+const what = runs === 0 ? 'No runs logged last week' : 'Only one run last week';
+return { stage, advance: false, reason: `${what}, so you stay on this stage. Repeating it helps it stick.` };
+}
+if (low >= lowLimit) return { stage, advance: false, reason: `${low} low-readiness morning${low === 1 ? '' : 's'} last week. Repeating the stage is normal and keeps the build safe.` };
+if (stage === LAST) return { stage, advance: true, graduated: true, reason: "You've run 30 minutes non-stop. That's roughly a 5K for most new runners." };
+return { stage: stage + 1, advance: true, reason: 'Last week went well, so you move up a stage.' };
+}
+module.exports = { STAGES, LAST, START_STAGE, stageOf, startStage, describe, decideProgression, mins };
 },
 'adapters/garmin-browser.js': function (module, exports, __req) {
 const { addDays } = __req('core/stats.js');

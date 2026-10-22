@@ -48,6 +48,11 @@ async function morningCheck({ date, config } = {}) {
   const r = computeReadiness(data, d, cfg);
   const today = cfg.plan ? todaySession(cfg.plan, d, r.status === 'ok' ? r.band : null, cfg.maxHr) : null;
   const message = today ? `${r.message} Today: ${today.suggestion}.` : r.message;
+  // Runs in the last 7 days, logged so the Sunday job can judge beginner progress without Garmin.
+  const runs7d = data.activities.filter((a) => {
+    const ago = daysBetween(a.start.slice(0, 10), d);
+    return a.type.includes('running') && ago >= 1 && ago <= 7;
+  }).length;
   return paged(JSON.stringify({
     date: r.date,
     status: r.status,
@@ -58,6 +63,7 @@ async function morningCheck({ date, config } = {}) {
     message,
     suggestion: r.suggestion,
     limiters: r.limiters,
+    runs7d,
     today: today && { week: today.week, weekTargetKm: today.weekTargetKm, recoveryWeek: today.recoveryWeek, changed: today.changed, accessory: today.accessory, notes: today.notes },
     components: r.components,
     inputs: r.inputs,

@@ -23,7 +23,14 @@ Use AskUserQuestion when available (up to 4 questions per call). Pre-fill from t
 3. **Delivery.** Email (recommended: the most reliable, since scheduled runs can't always push to a phone), push notification, or both. For email, confirm the address to send to; only ever use an address the user gives or confirms here.
 4. **Max heart rate.** Offer "{observedMaxHr} bpm, the highest in your last 90 days" first; a tested or Garmin-set value can go in Other.
 
-**Round 2: training**
+**First, which plan.** Ask: **"How long can you run without stopping right now?"** Options: not yet, or under a minute; about 2-4 minutes; about 5-10 minutes; 20 minutes or more, or a 5K. The last option goes to the regular plan (Round 2 below). Anything shorter goes to **beginner mode**:
+
+- Map the answer to `canRun`: `none`, `3min`, `5min`, `10min` (if they typed a time between 10 and 20 minutes in Other).
+- Ask **"Any running or leg injury in the last 12 months?"** (yes / no). If yes, set `injuryHistory: true`: they start one stage lower, and a single low-readiness morning is enough to repeat a stage. Suggest a physio check before starting if anything still hurts.
+- Ask runs per week (2 or 3; recommend 3), the long-run day (used to spread sessions), strength days and priority, as in Round 2. Skip goal and times: the goal is 30 minutes non-stop, and paces come later.
+- Explain briefly: 14 stages of run/walk, moving up only when the last week went well. Most people repeat a stage now and then, and that's the point. After 30 minutes non-stop, setup runs again to switch to the regular plan with paces.
+
+**Round 2: training** (regular plan)
 1. **Goal.** 5K, 10K, half marathon, or general fitness.
 2. **Runs per week.** 2, 3, 4 or 5. Mention their recent volume ({weeklyRunKm4w} km/week) so they pick something realistic.
 3. **Long-run day.** Saturday, Sunday, Friday, or another day via Other.
@@ -67,6 +74,7 @@ Write `~/.headroom/config.json` (create the folder if needed):
 - Days are lowercase three-letter weekdays.
 - `startDate` is the Monday of the current week; week numbers and the 10%-a-week build count from it. Keep the existing `startDate` when re-running setup unless the goal changed.
 - `baseWeeklyKm` is `weeklyRunKm4w` and `baseLongKm` is `longestRunKm4w` from the profile.
+- Beginner plans use `"mode": "beginner"`, `"stage"` from the starting-stage rule (`none` 1, `3min` 4, `5min` 6, `10min` 9; one lower with `injuryHistory`), `"injuryHistory"`, `runsPerWeek`, `longRunDay`, `liftDays`, `priority` and `startDate`, with no times. The Sunday job moves `stage` forward.
 - `currentTime` and `goalTime` are race times at the goal distance (`mm:ss`, or `h:mm:ss` for the half). Omit `currentTime` if the user doesn't know it. Paces in every session come from `currentTime`; when the user runs a faster race, update it so the paces move with them.
 
 ## 4. Show the plan

@@ -2,6 +2,7 @@
 // adjusted by readiness. Running is prescribed; strength training is a black box we only schedule around.
 const { daysBetween, clamp } = require('./stats');
 const { planPaces, formatPace } = require('./pace');
+const { stageOf, describe, LAST } = require('./beginner');
 
 const WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const PEAK_KM = { '5k': 25, '10k': 35, half: 45, fitness: 25 };
@@ -31,6 +32,7 @@ function combinations(items, k) {
 
 // Below 15 km a week there's only room for one hard session once warm-ups are counted.
 function hardTarget(runCount, priority, targetKm) {
+  if (priority === 'beginner') return 0;
   let count = runCount >= 4 ? 2 : runCount === 3 ? 1 : 0;
   if (priority === 'lifting' || (targetKm && targetKm < 15)) count = Math.min(count, 1);
   return count;
@@ -100,7 +102,41 @@ function weeklyTargetKm(prefs, date) {
   return { week: week + 1, km: halfKm(week % 4 === 3 ? build * 0.8 : build), recovery: week % 4 === 3 };
 }
 
+// Beginner weeks: two or three run/walk sessions at the current stage, spaced around strength days.
+function buildBeginnerWeek(prefs, date) {
+  const liftDays = prefs.liftDays || [];
+  const longRunDay = prefs.longRunDay || 'sat';
+  const runsPerWeek = Math.min(3, Math.max(2, prefs.runsPerWeek || 3));
+  const runDays = prefs.runDays || chooseRunDays({ runsPerWeek, longRunDay, liftDays, priority: 'beginner' });
+  const stage = stageOf(prefs);
+  const session = describe(stage);
+  const easier = describe(Math.max(1, stage - 1));
+  const week = Math.max(0, Math.floor(daysBetween(prefs.startDate || date, date) / 7)) + 1;
+  const accessoryDays = [...WEEKDAYS.filter((d) => liftDays.includes(d)), ...runDays]
+    .filter((d, i, all) => all.indexOf(d) === i)
+    .slice(0, 2);
+  const days = {};
+  for (const d of WEEKDAYS) {
+    const run = runDays.includes(d)
+      ? { type: 'runwalk', km: null, minutes: session.runMinutes, text: session.text, short: session.short, easierText: easier.text, easierShort: easier.short }
+      : null;
+    days[d] = { run, strength: liftDays.includes(d), accessory: accessoryDays.includes(d) };
+  }
+  return {
+    week,
+    targetKm: null,
+    recovery: false,
+    runDays,
+    days,
+    notes: [],
+    text: {},
+    paces: null,
+    beginner: { stage, of: LAST, title: session.title, short: session.short, runMinutes: session.runMinutes, graduated: Boolean(prefs.graduated) },
+  };
+}
+
 function buildWeek(prefs, date, maxHr) {
+  if (prefs.mode === 'beginner') return buildBeginnerWeek(prefs, date);
   const goal = prefs.goal || 'fitness';
   const liftDays = prefs.liftDays || [];
   const longRunDay = prefs.longRunDay || 'sun';
@@ -160,7 +196,9 @@ const RUN_NAMES = { easy: 'Easy', long: 'Long run', intervals: 'Intervals', temp
 function shortLabel(day, band) {
   if (band === 'Poor') return 'Rest';
   const parts = [];
-  if (day.run) {
+  if (day.run && day.run.type === 'runwalk') {
+    parts.push(band === 'Low' ? `Run/walk ${day.run.easierShort} (easier)` : `Run/walk ${day.run.short}`);
+  } else if (day.run) {
     const { type, km } = day.run;
     if (band === 'Low') {
       const share = type === 'easy' ? 0.7 : 0.6;
@@ -182,7 +220,13 @@ function todaySession(prefs, date, band, maxHr) {
     parts.push('Rest, or a gentle 20-30 min walk');
     changed = Boolean(day.run || day.strength);
   } else {
-    if (day.run) {
+    if (day.run && day.run.type === 'runwalk') {
+      // Beginners drop back one stage on a Low morning rather than shortening the session.
+      if (band === 'Low') {
+        parts.push(`${day.run.easierText} (last stage's session, an easier day)`);
+        changed = true;
+      } else parts.push(day.run.text);
+    } else if (day.run) {
       const { type, km } = day.run;
       // Low readiness only ever shortens or softens a run, never lengthens it.
       const lowKm = (share) => Math.min(km, Math.max(2, halfKm(km * share)));
@@ -218,6 +262,7 @@ function todaySession(prefs, date, band, maxHr) {
     changed,
     accessory: day.accessory && band !== 'Low' && band !== 'Poor' ? ACCESSORY : null,
     notes: week.notes,
+    beginner: week.beginner || null,
   };
 }
 

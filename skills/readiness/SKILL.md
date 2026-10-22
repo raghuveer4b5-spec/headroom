@@ -42,7 +42,7 @@ Computes a readiness score from overnight HRV, resting HR, sleep, training load 
 Append one JSON line to `~/.headroom/history.jsonl` on every run, including failed ones (create the folder if needed):
 
 ```json
-{"date":"2026-10-22","status":"ok","score":64,"band":"Moderate","source":"Headroom estimate","estimateScore":64,"components":{"hrv":58,"rhr":70,"sleep":66,"load":60,"bodyBattery":72}}
+{"date":"2026-10-22","status":"ok","score":64,"band":"Moderate","source":"Headroom estimate","estimateScore":64,"runs7d":3,"components":{"hrv":58,"rhr":70,"sleep":66,"load":60,"bodyBattery":72}}
 {"date":"2026-10-23","status":"failed","reason":"Chrome site approval for connect.garmin.com timed out"}
 ```
 
@@ -61,7 +61,7 @@ Present it as a short summary: how many High/Moderate/Low/Poor days, the lowest 
 Sent on Sunday evening for the week starting the next day. It needs only the config, not Garmin data or Chrome.
 
 1. Read `~/.headroom/config.json`. If it has no `plan` or no `email`, stop and say setup is needed.
-2. From the plugin root, run `node tools/weekly.js` (add `--date YYYY-MM-DD` for a different week).
+2. From the plugin root, run `node tools/weekly.js --commit` (add `--date YYYY-MM-DD` for a different week). For beginners, `--commit` saves whether they move up a stage or repeat it, decided from last week's runs and readiness in `history.jsonl`; leave it off for previews. If the user asks to repeat their current stage, set `plan.repeatNext` to `true` in the config before Sunday.
 3. Read `~/.headroom/weekly.json` and send it with the Gmail send tool: `to` = the config's `email` only, `subject`, `htmlBody` = `html`, `body` = `text`. Send it exactly as rendered.
 
 ## This week's plan

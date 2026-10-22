@@ -44,6 +44,21 @@ Headroom schedules your runs and two 12-minute bodyweight runner-strength blocks
 - **Paces come from your current race time,** using Jack Daniels' VDOT model: easy at about 62-70% of your VDOT, tempo at 88%, intervals at 97.5%. Heart-rate limits stay as a backstop. When you run faster, update your current time and every pace moves with you.
 - **A Low readiness score only ever shortens or softens a run,** never lengthens it.
 
+## Beginner mode
+
+For people who can't yet run 20 minutes non-stop. Fourteen run/walk stages take them from 8 x (run 1 min, walk 1.5 min) to 30 minutes non-stop. Each stage is a week of two or three sessions, spaced around strength days.
+
+**Why it's built this way:**
+
+- **New runners are the highest-risk group.** Novices get about 17.8 injuries per 1,000 hours of running, against 7.7 for recreational runners, with the risk concentrated in the first 8-13 weeks ([Videbæk et al., 2015](https://pubmed.ncbi.nlm.nih.gov/25951917/)).
+- **Rigid programmes lose people.** In a Couch to 5K study, 19% were injured and only 27% finished. Dropouts blamed the speed of progression, especially week 5 (5, then 8, then 20 minutes), and a previous injury made dropping out 7.6 times more likely ([Couch to 5K study, 2023](https://pmc.ncbi.nlm.nih.gov/articles/PMC10487403/)). So Headroom's longest continuous run never grows more than 50% in a stage, and moving up depends on how the last week went.
+- **Run/walk is easier on the body.** A run/walk strategy gave similar finish times with less muscle pain and fatigue ([Hottenrott et al., 2016](https://pubmed.ncbi.nlm.nih.gov/25467199/)). This was in marathon runners and measured discomfort, not injuries.
+- **Strength training is the best-supported protection.** It cut sports injuries to under a third and nearly halved overuse injuries in a meta-analysis of 25 trials; stretching showed no effect ([Lauersen et al., 2014](https://pubmed.ncbi.nlm.nih.gov/24100287/)). Every plan includes two short bodyweight strength blocks a week.
+
+**What it doesn't claim.** A slower programme on its own didn't reduce injuries: a 13-week plan following the 10% rule had no fewer than a standard 8-week plan ([Buist et al., 2008](https://pubmed.ncbi.nlm.nih.gov/17940147/)), and a 4-week walking-and-hopping lead-in had no effect ([Bredeweg et al., 2012](https://pubmed.ncbi.nlm.nih.gov/22842237/)). Headroom's bet is flexibility: move up when the body is ready, repeat when it isn't. That matches what dropouts asked for, but whether it reduces injuries hasn't been tested.
+
+**How progression works.** Each Sunday, Headroom reads last week's morning checks. It moves you up a stage when you ran at least twice and had fewer than two Low or Poor mornings (fewer than one after a recent injury). Otherwise it repeats the stage. On a Low morning, that day's session drops back to the previous stage; on a Poor morning, it's a walk. After stage 14, setup runs again to switch to the regular plan with paces.
+
 ## The readiness score
 
 If your watch has its own readiness score (Garmin Training Readiness on many newer Forerunner, Fenix and Epix models), Headroom uses it and still logs its own estimate alongside. Fitbit's Daily Readiness isn't in the Google Health API today.
@@ -76,6 +91,7 @@ src/adapters/              Garmin (browser session) → common data format
 src/core/readiness.js      the score
 src/core/plan.js           weekly plan + today's session
 src/core/pace.js           training paces from a race time (VDOT)
+src/core/beginner.js       run/walk stages and Sunday progression
 src/email/                 the morning and Sunday emails (email-safe HTML + plain text)
 tools/                     build, score, plan, email, weekly, preview
 ```

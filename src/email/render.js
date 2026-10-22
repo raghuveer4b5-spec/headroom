@@ -47,18 +47,23 @@ function weekStrip(plan, date, band, maxHr) {
   return WEEKDAYS.map((wd, i) => {
     const day = week.days[wd];
     const isToday = wd === todayWd;
-    const short = { easy: 'Easy', long: 'Long', intervals: 'Int', tempo: 'Tempo' };
+    const short = { easy: 'Easy', long: 'Long', intervals: 'Int', tempo: 'Tempo', runwalk: 'Run' };
     let run = day.run ? short[day.run.type] : day.strength ? 'Gym' : 'Rest';
-    let km = day.run ? String(day.run.km) : '';
+    // Second line: "5.5 km" for regular runs, "4x4 min" for beginner run/walk sessions.
+    let detail = day.run ? (day.run.type === 'runwalk' ? day.run.short : `${day.run.km} km`) : '';
     if (isToday && day.run && band === 'Low') {
-      run = 'Easy';
-      km = shortLabel(day, band).match(/Easy ([\d.]+)/)?.[1] || km;
+      if (day.run.type === 'runwalk') detail = day.run.easierShort;
+      else {
+        run = 'Easy';
+        const km = shortLabel(day, band).match(/Easy ([\d.]+)/)?.[1];
+        if (km) detail = `${km} km`;
+      }
     }
     if (isToday && band === 'Poor') {
       run = 'Rest';
-      km = '';
+      detail = '';
     }
-    return { wd, date: addDays(monday, i), isToday, run, km, gym: Boolean(day.run && day.strength) };
+    return { wd, date: addDays(monday, i), isToday, run, detail, gym: Boolean(day.run && day.strength) };
   });
 }
 
@@ -128,11 +133,11 @@ function renderEmail(result, config = {}) {
         return `<td width="14%" valign="top" align="center"${bg} style="padding:8px 2px;text-align:center;border-radius:8px;${d.isToday ? `background:${color};` : ''}color:${fg}">
 <p style="margin:0;font-size:11px;font-weight:600;color:${sub}">${d.wd.charAt(0).toUpperCase() + d.wd.slice(1)}</p>
 <p style="margin:5px 0 0;font-size:12px;font-weight:600;color:${fg}">${esc(d.run)}</p>
-<p style="margin:1px 0 0;font-size:11px;color:${sub}">${d.km ? `${d.km} km` : '&nbsp;'}</p>${d.gym ? `<p style="margin:1px 0 0;font-size:10px;color:${sub}">+ gym</p>` : ''}</td>`;
+<p style="margin:1px 0 0;font-size:11px;color:${sub}">${d.detail ? esc(d.detail) : '&nbsp;'}</p>${d.gym ? `<p style="margin:1px 0 0;font-size:10px;color:${sub}">+ gym</p>` : ''}</td>`;
       })
       .join('');
     const w = today;
-    week = card(`${label(`THIS WEEK · WEEK ${w.week}${w.recoveryWeek ? ' (LIGHTER)' : ''} · ${round(w.weekTargetKm, 1)} KM`)}<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>${cells}</tr></table>`);
+    week = card(`${label(w.beginner ? `THIS WEEK · STAGE ${w.beginner.stage} OF ${w.beginner.of}` : `THIS WEEK · WEEK ${w.week}${w.recoveryWeek ? ' (LIGHTER)' : ''} · ${round(w.weekTargetKm, 1)} KM`)}<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>${cells}</tr></table>`);
   }
 
   const html = page({
