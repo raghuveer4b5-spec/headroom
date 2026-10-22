@@ -2,7 +2,8 @@
 // so results are computed in the page and returned compactly, with paging for long output.
 const { computeReadiness, DEFAULT_CONFIG } = require('./core/readiness');
 const { isHard, observedMaxHr } = require('./core/load');
-const { addDays } = require('./core/stats');
+const { addDays, daysBetween, round } = require('./core/stats');
+const { todaySession, weekdayOf, buildWeek, WEEKDAYS } = require('./core/plan');
 const { fetchCommon } = require('./adapters/garmin-browser');
 
 const PAGE = 900;
@@ -42,13 +43,21 @@ async function morningCheck({ date, config } = {}) {
   const d = date || localToday();
   const data = await fetchCommon({ startDate: addDays(d, -31), endDate: d, sleepFrom: addDays(d, -2) });
   if (authExpired(data)) return JSON.stringify({ date: d, status: 'auth-expired', message: AUTH_MESSAGE });
-  const r = computeReadiness(data, d, resolveConfig(config, data.activities));
+  const cfg = resolveConfig(config, data.activities);
+  const r = computeReadiness(data, d, cfg);
+  const today = cfg.plan ? todaySession(cfg.plan, d, r.status === 'ok' ? r.band : null, cfg.maxHr) : null;
+  const message = today ? `${r.message} Today: ${today.suggestion}.` : r.message;
   return paged(JSON.stringify({
     date: r.date,
     status: r.status,
     score: r.score,
     band: r.band,
-    message: r.message,
+    source: r.source,
+    splitsScore: r.splitsScore,
+    message,
+    suggestion: r.suggestion,
+    limiters: r.limiters,
+    today: today && { week: today.week, weekTargetKm: today.weekTargetKm, recoveryWeek: today.recoveryWeek, changed: today.changed, accessory: today.accessory, notes: today.notes },
     components: r.components,
     inputs: r.inputs,
     missing: r.missing,
@@ -85,8 +94,20 @@ async function profile({ days = 90 } = {}) {
   const data = await fetchCommon({ startDate: addDays(end, -(days - 1)), endDate: end, sleepFrom: end });
   if (authExpired(data)) return JSON.stringify({ status: 'auth-expired', message: AUTH_MESSAGE });
   const withHrv = data.days.filter((d) => typeof d.hrvLastNight === 'number').length;
+  const recent = data.activities.filter((a) => daysBetween(a.start.slice(0, 10), end) < 28);
+  const recentRuns = recent.filter((a) => a.type.includes('running'));
+  const runKm = recentRuns.reduce((s, a) => s + a.distanceM / 1000, 0);
+  const longestRunKm = recentRuns.reduce((m, a) => Math.max(m, a.distanceM / 1000), 0);
+  const liftCounts = {};
+  for (const a of recent.filter((x) => x.type.includes('strength'))) {
+    const wd = weekdayOf(a.start.slice(0, 10));
+    liftCounts[wd] = (liftCounts[wd] || 0) + 1;
+  }
   return JSON.stringify({
     status: 'ok',
+    weeklyRunKm4w: round(runKm / 4, 1),
+    longestRunKm4w: round(longestRunKm, 1),
+    usualLiftDays: Object.keys(liftCounts).filter((wd) => liftCounts[wd] >= 2),
     observedMaxHr: observedMaxHr(data.activities),
     activities: data.activities.length,
     runs: data.activities.filter((a) => a.type.includes('running')).length,
@@ -95,4 +116,22 @@ async function profile({ days = 90 } = {}) {
   });
 }
 
-module.exports = { morningCheck, backtest, profile, more, computeReadiness, fetchCommon, authExpired, resolveConfig };
+// This week's plan as compact text. Pure: needs the config, not Garmin data.
+function planWeek({ config, date } = {}) {
+  const cfg = resolveConfig(config, []);
+  if (!cfg.plan) return 'No plan in config. Run setup first.';
+  const d = date || localToday();
+  const w = buildWeek(cfg.plan, d, cfg.maxHr);
+  const label = (x) => {
+    const parts = [];
+    if (x.run) parts.push(`${x.run.type} ${x.run.km} km`);
+    if (x.strength) parts.push('strength');
+    if (x.accessory) parts.push('runner block');
+    return parts.join(' + ') || 'rest';
+  };
+  const lines = WEEKDAYS.map((wd) => `${wd}: ${label(w.days[wd])}`);
+  const head = `Week ${w.week}${w.recovery ? ' (lighter week)' : ''}, ${w.targetKm} km planned`;
+  return paged([head, ...lines, ...w.notes.map((n) => `note: ${n}`)].join('\n'));
+}
+
+module.exports = { morningCheck, backtest, profile, planWeek, more, computeReadiness, fetchCommon, authExpired, resolveConfig };

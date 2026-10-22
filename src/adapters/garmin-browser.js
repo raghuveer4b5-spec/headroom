@@ -99,6 +99,20 @@ async function fetchCommon({ startDate, endDate, sleepFrom }) {
     }
   }
 
+  // Garmin's own Training Readiness (Forerunner 265 and up, Fenix, Epix...). Returns [] on
+  // watches without it, so only fetch the other days when today has a score.
+  const readinessOn = async (date) => {
+    const list = await safe(gget(`/metrics-service/metrics/trainingreadiness/${date}`), `readiness ${date}`);
+    const entries = (Array.isArray(list) ? list : []).filter((x) => typeof x?.score === 'number');
+    if (!entries.length) return false;
+    const latest = entries.sort((a, b) => String(a.timestamp || '').localeCompare(String(b.timestamp || ''))).pop();
+    day(date).deviceReadiness = { score: latest.score, level: latest.level ?? null, source: 'Garmin Training Readiness' };
+    return true;
+  };
+  if (await readinessOn(endDate)) {
+    await inBatches(dateList(sleepFrom, addDays(endDate, -1)), 6, readinessOn);
+  }
+
   const activities = [];
   for (let offset = 0; offset < 1000; offset += 100) {
     const page = await safe(

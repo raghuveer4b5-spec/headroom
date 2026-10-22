@@ -3,3 +3,5 @@ node_modules/
 # Real health data never goes in the repo.
 data/
 *.local.json
+.preview/
+.claude/

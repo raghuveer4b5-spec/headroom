@@ -12,7 +12,7 @@ test('the browser bundle builds and exposes Splits', () => {
   const sandbox = {};
   sandbox.globalThis = sandbox;
   vm.runInNewContext(code, sandbox);
-  for (const fn of ['morningCheck', 'backtest', 'profile', 'more', 'computeReadiness']) {
+  for (const fn of ['morningCheck', 'backtest', 'profile', 'planWeek', 'more', 'computeReadiness']) {
     assert.equal(typeof sandbox.Splits[fn], 'function', fn);
   }
 });

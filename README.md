@@ -1,73 +1,139 @@
 # Splits
 
-A daily **training readiness score** for people whose watch doesn't have one, run by your own Claude on your own data.
+**A morning check-in that tells you how hard to train today, and why.** Splits reads the recovery data your watch already records, scores it against your own normal, and emails you a readiness score with today's workout from a running plan built around your strength days. It runs on your own Claude, against your own Garmin account. No app, no server, no account to create.
 
-Garmin only shows Training Readiness on its higher-end watches. A Forerunner 165 records every input it needs (overnight HRV, resting heart rate, sleep, training load, Body Battery) but never combines them. Splits does that each morning, scoring every input against **your own** 30-day baseline, and tells you in one line whether to train hard, keep it easy, or rest:
+> **Readiness 64 · Moderate · Easy 3 km**
+> Planned session is fine; keep hard efforts controlled, or swap to easy if you feel off.
+> Held back by: training load 1.42x your 4-week average + hard session 2 days ago; HRV below your normal (52 vs 58 ms).
 
-> **Readiness 64 · Moderate.** Planned session is fine; keep hard efforts controlled, or swap to easy if you feel off. Held back by: training load 1.42x your 4-week average + hard session 2 days ago; HRV below your normal (52 vs 58 ms).
+## Why this exists
 
-## How it works
+Most running injuries aren't accidents. They're overuse: the body's tendons, bones and muscles get more work than they've adapted to, usually for a few weeks in a row, and something gives. The pattern is familiar to anyone who has trained for a race. A good few weeks, a jump in distance, a hard session on a short night's sleep, and then a sore Achilles that takes a month to settle.
 
+The warning signs tend to show up in data before they show up as pain:
+
+- **Load climbing faster than you've adapted to it.** In a study of novice runners, those who increased weekly distance by more than 30% over two weeks appeared more vulnerable to distance-related injuries than those who stayed under 10% ([Nielsen et al., 2014](https://pubmed.ncbi.nlm.nih.gov/25155475/); the effect was borderline, but it's the origin of much of the "10% rule" thinking). The wider idea, comparing the last week's load with your recent average (the acute:chronic ratio), comes from sports science work on load and injury ([Gabbett, 2016](https://pubmed.ncbi.nlm.nih.gov/26758673/)).
+- **Recovery that hasn't caught up.** Overnight heart rate variability (HRV) dropping below your own normal, and resting heart rate creeping up, are signs your body is still dealing with the last few days. Training that follows HRV, going hard when it's normal and easing off when it's suppressed, has produced the same or better fitness gains as a fixed plan ([Vesterinen et al., 2016](https://pubmed.ncbi.nlm.nih.gov/26909534/)).
+- **Short sleep.** Adolescent athletes sleeping under 8 hours had a higher injury rate than those who slept more ([Milewski et al., 2014](https://pubmed.ncbi.nlm.nih.gov/25028798/)).
+
+Higher-end watches turn these signals into a single daily number (Garmin calls it Training Readiness). Many good watches, such as the Forerunner 165, record every input but never combine them. Splits does that combining, and then does the one thing a number alone doesn't: it changes what you're told to do today.
+
+**What it is honest about:** no score prevents injuries. Splits flags the conditions that make them more likely, so you can ease off on the days that matter. The acute:chronic ratio is a useful rule of thumb, not a law (its predictive power has been questioned, e.g. [Impellizzeri et al., 2020](https://pubmed.ncbi.nlm.nih.gov/32502973/)), and the weights in the score are a reasoned starting point, tuned with your own feedback over time.
+
+## What you get each morning
+
+An email (and optionally a push notification) at the time you choose:
+
+1. **Readiness score, 0-100**, coloured by band, with one line on how to approach today.
+2. **Today's workout**, taken from your plan and adjusted to the score. On a Low day, intervals become an easy run and the long run gets shorter. On a Poor day, it's rest. The email shows what was planned so you can see what changed.
+3. **What shaped the score**: HRV, sleep, training load, resting HR and Body Battery, each against your own 30-day normal, and the one or two things holding you back.
+4. **This week at a glance**, with today highlighted.
+
+If the check can't run (your watch hasn't synced, or the Garmin session expired), you still get a short email saying so. No email means the run itself didn't happen.
+
+## The workflow
+
+```mermaid
+flowchart TD
+    A[Setup questionnaire<br/>time, delivery, max HR,<br/>goal, runs/week, long-run day,<br/>strength days, priority] --> B[~/.splits/config.json<br/>+ daily scheduled task]
+    B --> C[Every morning at your time]
+    C --> D[Claude opens Garmin Connect<br/>in your signed-in Chrome]
+    D --> E[splits-garmin.js runs in the page:<br/>reads HRV, resting HR, sleep,<br/>Body Battery, activities]
+    E --> F{Watch has its own<br/>readiness score?}
+    F -- yes --> G[Use Garmin Training Readiness]
+    F -- no --> H[Calculate the Splits estimate]
+    G --> I[Plan: today's session,<br/>adjusted to the score]
+    H --> I
+    I --> J[Render the email<br/>tools/email.js]
+    J --> K[Send to your inbox via Gmail]
+    K --> L[Log to ~/.splits/history.jsonl]
+    L --> M[Weekly: volume builds ~10%,<br/>every 4th week is lighter]
 ```
-Claude (your subscription)
-  ├─ splits-setup skill: questionnaire → ~/.splits/config.json + daily schedule
-  └─ splits-readiness skill
-       └─ Claude in Chrome → your logged-in Garmin Connect tab
-            └─ splits-garmin.js (runs in the page)
-                 ├─ Garmin adapter: reads Garmin's own JSON endpoints, read-only
-                 ├─ normalises into a device-neutral format
-                 └─ scores it → compact result (< 1,000 characters)
-```
 
-- **No backend, no credentials.** Splits uses the session you're already signed in with. Your data goes from Garmin to your browser to your Claude, and nowhere else.
-- **The maths is code, not the model.** The score is computed by a deterministic, tested script. Claude only runs it and relays the result, so the numbers can't be made up.
-- **Device-neutral core.** The scoring works on a common data format (below), so other sources such as the Google Health API (Fitbit Air, Pixel Watch) only need an adapter.
+### 1. Setup (once, about two minutes)
 
-## The score
+Ask Claude to **set up Splits**. It looks at your last 90 days of Garmin data first, so most answers are pre-filled, then asks two short rounds of questions:
 
-Each component is scored 0-100, where about 70 means a normal day for you.
+- **The morning check:** what time, how to reach you (email, push or both), whether to notify every morning or only on Low or Poor days, and your max heart rate (it suggests the highest from your recent activities).
+- **Your training:** goal (5K, 10K, half marathon or general fitness), runs per week, long-run day, which days you do strength training, and whether running, strength or neither comes first.
+
+It saves your answers, shows you the week's plan, schedules the daily check and runs it once so you see a real email straight away.
+
+### 2. Every morning
+
+The scheduled task opens Garmin Connect in your browser, runs the Splits script in the page and reads only what it needs. The score and the plan are calculated by tested code; Claude runs it and delivers the result exactly as rendered, so the numbers can't drift or be made up. The whole run takes a few minutes and closes its tab when it's done.
+
+### 3. Over the weeks
+
+Each run is logged. When you check in with Claude yourself, it asks whether the score matched how you felt. That 👍/👎 log is what the weights get tuned against. Your weekly distance builds by about 10% a week from where you actually are, with a lighter week every fourth week.
+
+## How the score works
+
+**If your watch has its own readiness score, Splits uses it.** On Garmin watches with Training Readiness (many newer Forerunner, Fenix and Epix models), the morning email shows Garmin's score and says so. The Splits estimate is still calculated and logged alongside it, which is a useful check on the formula. Fitbit's Daily Readiness isn't among the Google Health API's data types today, so Fitbit and Pixel Watch users would get the Splits estimate.
+
+Otherwise, Splits calculates its own. Each part is scored 0-100 against your own 30-day history, where about 70 is a normal day for you:
 
 | Component | Weight | How it's scored |
 |---|---|---|
-| HRV | 30% | Last night vs your 30-day log-normal baseline; penalised when the 7-day average drops below your Balanced range |
-| Sleep | 25% | Last night's sleep score (60%) plus 3-night duration vs 8 hours (40%) |
-| Training load | 25% | 7-day load vs your 4-week average (heart-rate-zone TRIMP). 0.8-1.3x is on track; above 1.3x falls to zero at 2.0x. Minus 20 the day after a hard session, minus 10 two days after |
+| HRV | 30% | Last night vs your 30-day baseline; marked down when your 7-day average drops below your Balanced range |
+| Sleep | 25% | Last night's sleep score (60%) plus your 3-night average duration against 8 hours (40%) |
+| Training load | 25% | Last 7 days of load vs your 4-week average, using time in heart-rate zones. 0.8-1.3x is on track; above 1.3x it falls steadily to zero at 2.0x. Marked down the day or two after a hard session |
 | Resting HR | 15% | This morning vs your 30-day baseline |
 | Body Battery | 5% | Level at wake-up |
 
-**Safety caps:** resting HR 7+ bpm above baseline, or HRV status Low, caps the score at 30. With less than 14 days of history it shows "calibrating" instead of a number. Missing inputs are dropped and the weights re-normalised.
+**Safety caps.** If your resting HR is 7 or more bpm above normal, or Garmin's HRV status reads Low, the score is capped at 30, however good everything else looks. Those are often the first signs of illness or real fatigue. With less than 14 days of history it says "calibrating" instead of guessing.
 
 | Score | Band | Guidance |
 |---|---|---|
 | 75-100 | High | Good day for intervals or a time trial |
-| 50-74 | Moderate | Planned session OK; swap hard for easy if you feel off |
-| 25-49 | Low | Easy, short, or cross-train |
+| 50-74 | Moderate | Planned session is fine; swap hard for easy if you feel off |
+| 25-49 | Low | Easy and short, or cross-train |
 | 0-24 | Poor | Rest |
 
-This is an estimate for training decisions, not Garmin's Training Readiness and not medical advice.
+## How the plan protects you
+
+The plan only schedules running and two short bodyweight "runner strength" blocks a week (calf raises, heel drops, split squats, glute bridges, core). Your strength training is yours: Splits only needs to know which days you do it, never what's in it.
+
+- **It starts from your real volume,** not your best week, and builds about 10% a week with a lighter week every fourth.
+- **Hard runs are at least 48 hours apart,** and avoid the day after strength training when the week allows it. When they share a day, the plan says to run first and lift later.
+- **Low weekly volume gets one hard run, not two,** because warm-ups and cool-downs add up.
+- **The long run builds from your longest recent run,** so a few light weeks don't reset you to beginner distances.
+- **A Low readiness score only ever shortens or softens a run,** never lengthens it.
 
 ## Install
 
-Requires Claude Code (or the Claude desktop app) with Claude in Chrome, and Node 18+ only if you want to run the tests.
+You need the Claude desktop app or Claude Code, with Claude in Chrome and a Gmail connection for email delivery. Node 18+ is only needed to run the tests.
 
 ```bash
 claude plugin marketplace add <path-or-git-url-of-this-repo>
 claude plugin install splits@splits
 ```
 
-Then ask Claude to **set up Splits**. The setup questionnaire checks your Garmin data and asks three things:
+Then ask Claude to **set up Splits**.
 
-1. What time to run the morning check
-2. Whether to notify you every morning, only on Low or Poor days, or not at all
-3. Which max heart rate to use (it suggests the highest from your last 90 days)
+A few practical notes:
 
-It saves your answers to `~/.splits/config.json`, schedules the daily check and runs it once so you see the result. Because it uses your Chrome session, the check runs on your computer, not in the cloud, so pick a time it's usually awake.
+- The check runs on your computer, because it uses your Chrome session. Pick a time when the computer is usually awake and the Claude app is open; a run that's missed happens the next time you open the app.
+- Scheduled runs are unattended, so approve the tools once: open the scheduled task, click **Run now**, and choose "always allow" for connect.garmin.com.
+- Your watch needs to have synced overnight through your phone.
 
-After that: "What's my readiness today?" or "Backtest my readiness for the last 60 days."
+## Privacy
 
-## Common data format
+There's no Splits server. Your Garmin data goes from Garmin to your browser to your Claude session, and the email goes only to the address you gave during setup. Splits never sees or stores your password: it uses the Garmin session you're already signed in with. Your history and settings stay in `~/.splits/` on your computer.
 
-Adapters produce this; `src/core` only ever sees this shape.
+## Under the hood
+
+```
+skills/splits-setup        questionnaire → config, plan preview, schedule
+skills/splits-readiness    morning check, backtest, weekly plan
+src/adapters/              Garmin (browser session) → common data format
+src/core/readiness.js      the score
+src/core/plan.js           weekly plan + today's session
+src/email/render.js        the morning email (email-safe HTML + plain text)
+tools/                     build, score, plan, email, preview
+```
+
+The core never talks to Garmin directly. Adapters turn each source into one common format, so adding another source (such as the Google Health API for Fitbit and Pixel Watch) means writing an adapter, not touching the score or the plan:
 
 ```json
 {
@@ -75,7 +141,8 @@ Adapters produce this; `src/core` only ever sees this shape.
   "days": [
     { "date": "2026-10-22", "restingHr": 58, "hrvLastNight": 52, "hrvWeeklyAvg": 55,
       "hrvStatus": "BALANCED", "hrvBalancedLow": 49, "hrvBalancedHigh": 64,
-      "sleepSeconds": 23400, "sleepScore": 72, "bodyBatteryWake": 77 }
+      "sleepSeconds": 23400, "sleepScore": 72, "bodyBatteryWake": 77,
+      "deviceReadiness": null }
   ],
   "activities": [
     { "start": "2026-10-20T07:30:00", "type": "running", "durationS": 1800, "distanceM": 5000,
@@ -85,28 +152,27 @@ Adapters produce this; `src/core` only ever sees this shape.
 }
 ```
 
-Every field except `date`/`start` is optional. Score any file in this format without a browser:
+Every field except `date` and `start` is optional.
 
 ```bash
+npm test                                  # 35 tests, synthetic data only
+npm run build                             # bundle src/ into the page script
 node tools/score.js data.json --backtest 30
+node tools/plan.js                        # this week's plan from your config
+node tools/email.js result.json           # render a morning email
 ```
 
-## Development
+## Known limits
 
-```bash
-npm test          # node:test suite, synthetic data only
-npm run build     # bundle src/ into skills/splits-readiness/scripts/splits-garmin.js
-```
-
-`splits-garmin.js` is generated; edit `src/` and rebuild.
-
-## Known limits (v0.1)
-
-- **Unofficial endpoints.** The Garmin adapter uses the same internal endpoints as the Garmin Connect website. They can change without notice, and automated access sits outside Garmin's official API. Splits is read-only and limited to your own account.
-- **Token cost.** Each run pastes the ~16 KB script into the page. An MCP server or the official API would remove that.
-- **Untuned weights.** The weights are a reasoned starting point, checked against one person's 60-day history. The 👍/👎 log is there to tune them.
+- **Unofficial endpoints.** The Garmin adapter reads the same internal endpoints the Garmin Connect website uses. They can change without notice, and automated access sits outside Garmin's official API. Splits is read-only and limited to your own account.
+- **Cost per run.** Each check pastes a ~28 KB script into the page, which uses some of your Claude usage every morning. An MCP server or Garmin's official API would remove that.
+- **Untested on watches with Training Readiness.** Using Garmin's own score is written defensively but hasn't yet run against a watch that has it.
+- **The weights aren't validated.** They were checked against one runner's 60-day history, where personal bests fell on high-scoring days and the worst mornings scored lowest. That's encouraging, not proof.
 
 ## Roadmap
 
-- v0.2: post-run debrief card; Google Health API adapter (Fitbit Air, Pixel Watch)
-- v0.3: adaptive run plan that fits around your lifting days
+- Post-run debrief: splits, pacing and form compared with your past runs at the same pace
+- Google Health API adapter for Fitbit and Pixel Watch
+- Tuning the weights from the 👍/👎 log
+
+Splits is an estimate for training decisions, not medical advice. If something hurts, see a physio.

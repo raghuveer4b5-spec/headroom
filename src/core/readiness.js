@@ -135,18 +135,29 @@ function computeReadiness(data, date, config = {}) {
   }
 
   const base = { date, components, inputs, missing, caps };
-  if (components.hrv === undefined && components.rhr === undefined) {
-    const status = hrvHist.length < cfg.minHistoryDays && rhrHist.length < cfg.minHistoryDays ? 'calibrating' : 'no-sync';
-    return { ...base, status, score: null, band: null, limiters: [], suggestion: null, message: statusMessage(status) };
+  const keys = Object.keys(components);
+  const ownAvailable = components.hrv !== undefined || components.rhr !== undefined;
+  let splitsScore = null;
+  if (ownAvailable) {
+    const weightSum = keys.reduce((s, k) => s + cfg.weights[k], 0);
+    splitsScore = keys.reduce((s, k) => s + components[k] * cfg.weights[k], 0) / weightSum;
+    if (caps.length) splitsScore = Math.min(splitsScore, 30);
+    splitsScore = Math.round(splitsScore);
   }
 
-  const keys = Object.keys(components);
-  const weightSum = keys.reduce((s, k) => s + cfg.weights[k], 0);
-  let score = keys.reduce((s, k) => s + components[k] * cfg.weights[k], 0) / weightSum;
-  if (caps.length) score = Math.min(score, 30);
-  score = Math.round(score);
-  const band = bandFor(score);
+  // The watch's own readiness score wins when it has one; ours stays as the explanation
+  // and as a comparison point for tuning.
+  const device = cfg.useDeviceReadiness === false ? null : today.deviceReadiness;
+  const useDevice = Boolean(device && isNum(device.score));
 
+  if (!useDevice && !ownAvailable) {
+    const status = hrvHist.length < cfg.minHistoryDays && rhrHist.length < cfg.minHistoryDays ? 'calibrating' : 'no-sync';
+    return { ...base, status, score: null, band: null, source: null, splitsScore, limiters: [], suggestion: null, message: statusMessage(status) };
+  }
+
+  const score = useDevice ? Math.round(clamp(device.score)) : splitsScore;
+  const band = bandFor(score);
+  const source = useDevice ? device.source || 'device' : 'Splits estimate';
   const limiters = [
     ...caps,
     ...keys
@@ -156,8 +167,9 @@ function computeReadiness(data, date, config = {}) {
       .map((k) => limiterText(k, inputs)),
   ];
   const suggestion = SUGGESTIONS[band];
-  const message = `Readiness ${score} · ${band}. ${suggestion}${limiters.length ? ` Held back by: ${limiters.join('; ')}.` : ''}`;
-  return { ...base, status: 'ok', score, band, limiters, suggestion, message };
+  const label = useDevice ? ` (${source})` : '';
+  const message = `Readiness ${score} · ${band}${label}. ${suggestion}${limiters.length ? ` ${useDevice ? 'Worth knowing' : 'Held back by'}: ${limiters.join('; ')}.` : ''}`;
+  return { ...base, status: 'ok', score, band, source, splitsScore, limiters, suggestion, message };
 }
 
 function statusMessage(status) {
