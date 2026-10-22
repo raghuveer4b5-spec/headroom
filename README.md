@@ -2,9 +2,11 @@
 
 **A morning check-in that tells you how hard to train today, and why.** Headroom reads the recovery data your watch already records, scores it against your own normal, and emails you a readiness score with today's workout from a running plan built around your strength days. It runs on your own Claude, against your own Garmin account. No app, no server, no account to create.
 
-> **Readiness 64 · Moderate · Easy 3 km**
-> Planned session is fine; keep hard efforts controlled, or swap to easy if you feel off.
-> Held back by: training load 1.42x your 4-week average + hard session 2 days ago; HRV below your normal (52 vs 58 ms).
+<p align="center">
+  <img src="docs/email-preview.png" width="360" alt="A Headroom morning email: readiness 64, Moderate, with today's workout (easy 2.5 km in Zone 2), bars showing what shaped the score, and the week's plan with Thursday highlighted">
+  <br>
+  <sub>The morning email, shown with sample data.</sub>
+</p>
 
 ## Why this exists
 
