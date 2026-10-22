@@ -22,7 +22,7 @@ const RESULT = {
 
 test('subject carries the score, band and adjusted workout', () => {
   const { subject } = renderEmail(RESULT, CONFIG);
-  assert.equal(subject, 'Readiness 44 · Low · Easy 4 km (was long run)');
+  assert.equal(subject, 'Take it easy: Easy 4 km (was long run) · Readiness 44');
 });
 
 test('HTML is email-safe and shows the workout, the reasons and the week', () => {
@@ -46,12 +46,23 @@ test('user text is escaped', () => {
 
 test('a failed check still sends a short, clear email', () => {
   const r = renderEmail({ date: '2026-10-24', status: 'no-sync', message: "Today's overnight data hasn't synced yet." }, CONFIG);
-  assert.equal(r.subject, 'Headroom: no readiness score today');
+  assert.equal(r.subject, 'No check today: sync your watch');
   assert.match(r.text, /hasn't synced/);
+});
+
+test('each band gets its own call to action, and the preview says it is from Headroom', () => {
+  const at = (band, score) => renderEmail({ ...RESULT, band, score }, CONFIG).subject;
+  assert.match(at('High', 82), /^Go for it: .* · Readiness 82$/);
+  assert.match(at('Moderate', 62), /^Steady day: .* · Readiness 62$/);
+  assert.equal(at('Poor', 18), 'Rest day: recovery comes first · Readiness 18');
+  const strengthDay = renderEmail({ ...RESULT, date: '2026-10-21', band: 'Moderate', score: 62 }, CONFIG).subject;
+  assert.equal(strengthDay, 'Steady day: strength day · Readiness 62');
+  assert.match(renderEmail(RESULT, CONFIG).html, /Headroom morning check\. Held back by: short or poor sleep/);
+  assert.equal(renderEmail({ date: '2026-10-24', status: 'auth-expired', message: 'x' }, CONFIG).subject, 'No check today: sign in to Garmin Connect');
 });
 
 test('without a plan the email still works', () => {
   const r = renderEmail(RESULT, { maxHr: 196 });
-  assert.equal(r.subject, 'Readiness 44 · Low');
+  assert.equal(r.subject, 'Take it easy · Readiness 44');
   assert.doesNotMatch(r.html, /THIS WEEK/);
 });

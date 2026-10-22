@@ -67,13 +67,31 @@ function weekStrip(plan, date, band, maxHr) {
   });
 }
 
+// Subjects lead with what to do today, then the session, then the score.
+const VERDICT = { High: 'Go for it', Moderate: 'Steady day', Low: 'Take it easy', Poor: 'Rest day' };
+const FAILED_SUBJECT = {
+  'no-sync': 'No check today: sync your watch',
+  'auth-expired': 'No check today: sign in to Garmin Connect',
+  calibrating: 'Headroom is calibrating: a few more nights of data',
+};
+
+function dailySubject(result, today) {
+  const score = `Readiness ${result.score}`;
+  const verdict = VERDICT[result.band] || 'Today';
+  if (result.band === 'Poor') return `${verdict}: recovery comes first · ${score}`;
+  if (!today) return `${verdict} · ${score}`;
+  if (today.short === 'Rest') return `Rest day · ${score}`;
+  if (today.short === 'Strength') return `${verdict}: strength day · ${score}`;
+  return `${verdict}: ${today.short} · ${score}`;
+}
+
 function renderEmail(result, config = {}) {
   const date = result.date;
   const plan = config.plan;
   const maxHr = config.maxHr || 190;
 
   if (result.status !== 'ok') {
-    const subject = 'Headroom: no readiness score today';
+    const subject = FAILED_SUBJECT[result.status] || 'No readiness check today';
     const text = `${result.message}\n\nNothing else to do; tomorrow's check runs as usual.`;
     const html = `<div style="font-family:${FONT};color:${INK};max-width:560px;margin:0 auto;padding:24px">
 <p style="margin:0 0 4px;color:${MUTED};font-size:13px">Headroom · ${esc(longDate(date))}</p>
@@ -84,14 +102,15 @@ function renderEmail(result, config = {}) {
 
   const color = BAND_COLOR[result.band] || INK;
   const today = plan ? todaySession(plan, date, result.band, maxHr) : null;
-  const subject = `Readiness ${result.score} · ${result.band}${today ? ` · ${today.short}` : ''}`;
+  const subject = dailySubject(result, today);
   const rows = componentRows(result.components || {}, result.inputs || {});
   const limiters = result.limiters || [];
   const fromDevice = result.source && result.source !== 'Headroom estimate';
   const sourceLine = fromDevice
     ? `${esc(result.source)}${result.estimateScore !== null && result.estimateScore !== undefined ? ` · Headroom estimate ${result.estimateScore}` : ''}`
     : 'Headroom estimate from your Garmin data';
-  const preheader = today ? `Today: ${today.short}.` : result.suggestion || '';
+  // The inbox preview line says who it's from, since self-sent mail shows up as "me".
+  const preheader = `Headroom morning check. ${limiters.length ? `${fromDevice ? 'Worth knowing' : 'Held back by'}: ${limiters[0]}.` : result.suggestion || ''}`;
 
   const hero = card(`<table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
 <td width="84" valign="middle"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td width="72" height="72" align="center" valign="middle" bgcolor="${color}" style="width:72px;height:72px;border-radius:36px;background:${color};color:#FFFFFF;font-size:30px;font-weight:700;text-align:center">${result.score}</td></tr></table></td>

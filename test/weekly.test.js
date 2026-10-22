@@ -14,7 +14,7 @@ test('any date maps to the Monday of its week', () => {
 
 test('subject sums up the week', () => {
   const { subject } = renderWeeklyEmail(CONFIG, '2026-10-26');
-  assert.match(subject, /^Your week: [\d.]+ km · 3 runs \+ 3 strength$/);
+  assert.match(subject, /^Your week ahead: [\d.]+ km, 3 runs \+ 3 gym days$/);
 });
 
 test('every day appears with its full session, and strength stays a black box', () => {
@@ -46,7 +46,7 @@ test('current and goal times and the paces appear when known', () => {
 
 test('the fourth week is flagged as lighter', () => {
   const { subject, html } = renderWeeklyEmail(CONFIG, '2026-11-09');
-  assert.match(subject, /^Lighter week:/);
+  assert.match(subject, /^Lighter week ahead:/);
   assert.match(html, /LIGHTER WEEK/);
 });
 

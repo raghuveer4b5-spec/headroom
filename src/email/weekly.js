@@ -23,6 +23,14 @@ const detailOf = (text) =>
     .replace(/^(Intervals|Tempo|Run\/walk): /, '');
 const para = (t, extra = '') => `<p style="margin:14px 0 0;font-size:14px;line-height:1.55;color:${INK}${extra}">${t}</p>`;
 
+// Inbox preview line: the week's runs by day, e.g. "Intervals Mon, easy run Thu, long run Sat".
+function keySessions(week) {
+  const names = { intervals: 'intervals', tempo: 'tempo', long: 'long run', easy: 'easy run', runwalk: 'run/walk' };
+  const parts = WEEKDAYS.filter((d) => week.days[d].run).map((d) => `${names[week.days[d].run.type]} ${cap(d)}`);
+  const text = parts.join(', ') || 'Rest and strength days';
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 function mondayOf(date) {
   return addDays(date, -WEEKDAYS.indexOf(weekdayOf(date)));
 }
@@ -84,8 +92,8 @@ function regularHero(plan, week, monday, maxHr, counts) {
 <p style="margin:10px 0 0;font-size:13px;color:${MUTED}">Your paces: easy ${formatPace(p.easyFast)}-${formatPace(p.easySlow)} · tempo ${formatPace(p.tempo)} · intervals ${formatPace(p.interval)} per km</p>`
     : '';
   return {
-    subject: `${week.recovery ? 'Lighter week' : 'Your week'}: ${km} km · ${runs} runs + ${gym} strength`,
-    preheader: `${km} km across ${runs} runs, around ${gym} strength days.`,
+    subject: `${week.recovery ? 'Lighter week ahead' : 'Your week ahead'}: ${km} km, ${runs} runs + ${gym} gym days`,
+    preheader: `Headroom weekly plan. ${keySessions(week)}.`,
     hero: card(`${label(`WEEK ${week.week}${week.recovery ? ' · LIGHTER WEEK' : ''}`)}
 <p style="margin:0;font-size:30px;font-weight:700;color:${INK}">${km} km</p>
 <p style="margin:4px 0 0;font-size:14px;color:${MUTED}">${runs} runs (${hard} hard) · ${gym} strength days · ${esc(goal)} goal</p>${timesLine}
@@ -100,7 +108,7 @@ function beginnerHero(week, counts, progression) {
   if (progression && progression.graduated) {
     return {
       subject: 'You did it: 30 minutes non-stop',
-      preheader: "You've finished the beginner programme.",
+      preheader: "Headroom weekly plan. You've finished the beginner programme.",
       hero: card(`${label('PROGRAMME COMPLETE')}
 <p style="margin:0;font-size:26px;font-weight:700;color:${INK}">30 minutes, non-stop</p>${progressBar(b.of, b.of)}
 ${para("That's roughly a 5K for most new runners, and the hardest part of running is behind you.")}
@@ -112,8 +120,8 @@ ${para('Next: ask Claude to <strong>set up Headroom again</strong>. It will meas
     ? progression.reason
     : 'You start here. Each week you move up a stage when the last one went well, and repeat it when it didn\'t.';
   return {
-    subject: `Stage ${b.stage} of ${b.of}: ${b.title.charAt(0).toLowerCase()}${b.title.slice(1)}`,
-    preheader: `${runs} run/walk sessions this week, around ${gym} strength days.`,
+    subject: `Week ahead: stage ${b.stage}${progression && !progression.advance ? ' again' : ` of ${b.of}`}, ${b.title.charAt(0).toLowerCase()}${b.title.slice(1)}`,
+    preheader: `Headroom weekly plan. ${keySessions(week)}.`,
     hero: card(`${label(`STAGE ${b.stage} OF ${b.of} · BEGINNER TO 30 MIN`)}
 <p style="margin:0;font-size:26px;font-weight:700;color:${INK}">${esc(b.title)}</p>
 <p style="margin:4px 0 0;font-size:14px;color:${MUTED}">${runs} run/walk sessions · ${gym} strength days · goal: 30 minutes non-stop</p>${progressBar(b.stage - 1, b.of)}

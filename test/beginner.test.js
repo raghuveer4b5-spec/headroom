@@ -77,11 +77,14 @@ test('finishing the last stage graduates', () => {
 test('the Sunday email shows the stage, progress and the decision', () => {
   const progression = { stage: 6, advance: true, reason: 'Last week went well, so you move up a stage.' };
   const { subject, html } = renderWeeklyEmail({ maxHr: 190, plan: { ...PLAN, stage: 6 } }, '2026-10-26', progression);
-  assert.equal(subject, `Stage 6 of ${LAST}: run 5 min, walk 1.5 min`);
+  assert.equal(subject, `Week ahead: stage 6 of ${LAST}, run 5 min, walk 1.5 min`);
   assert.match(html, /STAGE 6 OF 14/);
   assert.match(html, /move up a stage/);
   assert.match(html, /Walk breaks are part of the plan/);
   assert.doesNotMatch(html, /Intervals|Tempo/);
+  const repeat = renderWeeklyEmail({ maxHr: 190, plan: { ...PLAN, stage: 5 } }, '2026-10-26', { stage: 5, advance: false, reason: 'x' });
+  assert.equal(repeat.subject, 'Week ahead: stage 5 again, run 4 min, walk 1.5 min');
+  assert.match(repeat.html, /Headroom weekly plan\. Run\/walk Tue, run\/walk Thu, run\/walk Sat\./);
   const done = renderWeeklyEmail({ maxHr: 190, plan: { ...PLAN, stage: LAST } }, '2026-10-26', { stage: LAST, graduated: true, reason: 'x' });
   assert.match(done.subject, /30 minutes non-stop/);
 });
