@@ -2,7 +2,7 @@
 
 **A running plan built around your gym days, adjusted every morning to how recovered you are.**
 
-Tell Headroom your goal, how often you run and which days you lift. Every Sunday it emails you next week's plan. Every morning it checks your watch's recovery data and tells you whether to run that day as planned, ease off, or rest. It runs on your own Claude against your own Garmin account: no app, no server, no account to create.
+Tell Headroom your current time, your goal, how often you run and which days you lift. Every Sunday it emails you next week's plan. Every morning it checks your watch's recovery data and tells you whether to run that day as planned, ease off, or rest. It runs on your own Claude against your own Garmin account: no app, no server, no account to create.
 
 <table>
   <tr>
@@ -33,7 +33,7 @@ No score prevents injuries, and the acute:chronic ratio has its critics ([Impell
 
 ## What you get
 
-**Sunday evening: the plan.** Next week's sessions in full: distances, warm-ups, intervals, heart-rate targets, which days include strength training, and a 12-minute bodyweight runner-strength block (calves, glutes, core). Your gym sessions are a black box: Headroom only asks which days you train, never what you do there.
+**Sunday evening: the plan.** Next week's sessions in full: distances, warm-ups, intervals, target paces worked out from your current race time (using Jack Daniels' VDOT method) with heart-rate limits as a backstop, where you stand against your goal, which days include strength training, and a 12-minute bodyweight runner-strength block (calves, glutes, core). Your gym sessions are a black box: Headroom only asks which days you train, never what you do there.
 
 **Every morning: the check.** A readiness score from 0 to 100, today's session adjusted to it (on a Low day intervals become an easy run and the long run gets shorter; on a Poor day it's rest), what shaped the score, and the week with today highlighted. If the check can't run, because your watch hasn't synced or the Garmin session expired, you still get a short email saying so.
 
@@ -63,7 +63,7 @@ flowchart TD
 Ask Claude to **set up Headroom**. It looks at your last 90 days of Garmin data first, so most answers are pre-filled, then asks two short rounds of questions:
 
 - **The morning check:** what time, how to reach you (email, push or both), whether to notify every morning or only on Low or Poor days, and your max heart rate (it suggests the highest from your recent activities).
-- **Your training:** goal (5K, 10K, half marathon or general fitness), runs per week, long-run day, which days you do strength training, and whether running, strength or neither comes first.
+- **Your training:** goal (5K, 10K, half marathon or general fitness), your current time and goal time (current time pre-filled from your best recent run), runs per week, long-run day, which days you do strength training, and whether running, strength or neither comes first.
 
 It saves your answers, shows you the week's plan, schedules the Sunday plan email and the daily check, and runs the check once so you see a real email straight away.
 
@@ -141,6 +141,7 @@ skills/readiness           morning check, backtest, weekly plan email
 src/adapters/              Garmin (browser session) → common data format
 src/core/readiness.js      the score
 src/core/plan.js           weekly plan + today's session
+src/core/pace.js           training paces from a race time (VDOT)
 src/email/render.js        the morning email (email-safe HTML + plain text)
 src/email/weekly.js        the Sunday plan email
 src/email/style.js         shared email layout
@@ -169,7 +170,7 @@ The core never talks to Garmin directly. Adapters turn each source into one comm
 Every field except `date` and `start` is optional.
 
 ```bash
-npm test                                  # 42 tests, synthetic data only
+npm test                                  # 49 tests, synthetic data only
 npm run build                             # bundle src/ into the page script
 node tools/score.js data.json --backtest 30
 node tools/plan.js                        # this week's plan from your config

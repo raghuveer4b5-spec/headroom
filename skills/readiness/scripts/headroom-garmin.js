@@ -6,6 +6,7 @@ const { computeReadiness, DEFAULT_CONFIG } = __req('core/readiness.js');
 const { isHard, observedMaxHr } = __req('core/load.js');
 const { addDays, daysBetween, round } = __req('core/stats.js');
 const { todaySession, weekdayOf, buildWeek, WEEKDAYS } = __req('core/plan.js');
+const { DISTANCE_KM, riegel, formatTime } = __req('core/pace.js');
 const { fetchCommon } = __req('adapters/garmin-browser.js');
 const PAGE = 900;
 let pending = [];
@@ -92,8 +93,18 @@ for (const a of recent.filter((x) => x.type.includes('strength'))) {
 const wd = weekdayOf(a.start.slice(0, 10));
 liftCounts[wd] = (liftCounts[wd] || 0) + 1;
 }
+const estimates = {};
+for (const [goal, km] of Object.entries(DISTANCE_KM)) {
+if (goal === 'fitness') continue;
+const best = data.activities
+.filter((a) => a.type.includes('running') && a.distanceM >= 3000 && (a.movingS || a.durationS))
+.map((a) => riegel(a.distanceM / 1000, a.movingS || a.durationS, km))
+.sort((x, y) => x - y)[0];
+if (best) estimates[goal] = formatTime(best);
+}
 return JSON.stringify({
 status: 'ok',
+estimatedTimes: estimates,
 weeklyRunKm4w: round(runKm / 4, 1),
 longestRunKm4w: round(longestRunKm, 1),
 usualLiftDays: Object.keys(liftCounts).filter((wd) => liftCounts[wd] >= 2),
@@ -362,6 +373,7 @@ module.exports = { activityLoad, isHard, loadSummary, ratioScore, observedMaxHr 
 },
 'core/plan.js': function (module, exports, __req) {
 const { daysBetween, clamp } = __req('core/stats.js');
+const { planPaces, formatPace } = __req('core/pace.js');
 const WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const PEAK_KM = { '5k': 25, '10k': 35, half: 45, fitness: 25 };
 const LONG_CAP_KM = { '5k': 10, '10k': 14, half: 20, fitness: 10 };
@@ -466,11 +478,17 @@ if (plannedKm > target.km * 1.15) notes.push(`${plannedKm} km planned, above the
 const z2 = Math.round(0.7 * maxHr);
 const t1 = Math.round(0.85 * maxHr);
 const t2 = Math.round(0.9 * maxHr);
+const paces = planPaces(prefs);
+const easyPace = paces ? ` at ${formatPace(paces.easyFast)}-${formatPace(paces.easySlow)}/km` : '';
 const text = {
-easy: (km) => `Easy ${km} km, Zone 2 (keep HR under ${z2} bpm)`,
-long: (km) => `Long easy run ${km} km, Zone 2 (under ${z2} bpm)`,
-intervals: () => `Intervals: 1.5 km warm-up, ${reps} x 1 km hard (effort 8/10) with 2 min jog, 1 km cool-down`,
-tempo: () => `Tempo: 1.5 km warm-up, ${tempoMin} min comfortably hard (${t1}-${t2} bpm), 1 km cool-down`,
+easy: (km) => `Easy ${km} km${easyPace}, Zone 2 (keep HR under ${z2} bpm)`,
+long: (km) => `Long easy run ${km} km${easyPace}, Zone 2 (under ${z2} bpm)`,
+intervals: () => paces
+? `Intervals: 1.5 km warm-up, ${reps} x 1 km at ${formatPace(paces.interval)}/km with 2 min jog, 1 km cool-down`
+: `Intervals: 1.5 km warm-up, ${reps} x 1 km hard (effort 8/10) with 2 min jog, 1 km cool-down`,
+tempo: () => paces
+? `Tempo: 1.5 km warm-up, ${tempoMin} min at ${formatPace(paces.tempo)}/km (${t1}-${t2} bpm), 1 km cool-down`
+: `Tempo: 1.5 km warm-up, ${tempoMin} min comfortably hard (${t1}-${t2} bpm), 1 km cool-down`,
 };
 const accessoryDays = [...WEEKDAYS.filter((d) => liftDays.includes(d)), ...easyDays]
 .filter((d, i, all) => all.indexOf(d) === i)
@@ -483,7 +501,7 @@ else if (hard[d]) run = { type: hard[d], km: sizes[hard[d]], text: text[hard[d]]
 else if (runDays.includes(d)) run = { type: 'easy', km: easyKm, text: text.easy(easyKm) };
 days[d] = { run, strength: liftDays.includes(d), accessory: accessoryDays.includes(d) };
 }
-return { week: target.week, targetKm: plannedKm, recovery: target.recovery, runDays, days, notes, text };
+return { week: target.week, targetKm: plannedKm, recovery: target.recovery, runDays, days, notes, text, paces };
 }
 const RUN_NAMES = { easy: 'Easy', long: 'Long run', intervals: 'Intervals', tempo: 'Tempo' };
 function shortLabel(day, band) {
@@ -546,6 +564,70 @@ notes: week.notes,
 };
 }
 module.exports = { WEEKDAYS, weekdayOf, chooseRunDays, assignHard, weeklyTargetKm, buildWeek, todaySession, shortLabel, ACCESSORY };
+},
+'core/pace.js': function (module, exports, __req) {
+const DISTANCE_KM = { '5k': 5, '10k': 10, half: 21.0975, fitness: 5 };
+const GOAL_NAMES = { '5k': '5K', '10k': '10K', half: 'half marathon', fitness: '5K' };
+function parseTime(text) {
+if (typeof text === 'number') return text;
+const parts = String(text || '').trim().split(':').map(Number);
+if (!parts.length || parts.some((n) => !Number.isFinite(n))) return null;
+return parts.reduce((total, n) => total * 60 + n, 0);
+}
+function formatTime(sec) {
+const s = Math.round(sec);
+const h = Math.floor(s / 3600);
+const m = Math.floor((s % 3600) / 60);
+const r = String(s % 60).padStart(2, '0');
+return h ? `${h}:${String(m).padStart(2, '0')}:${r}` : `${m}:${r}`;
+}
+function formatPace(secPerKm) {
+const s = Math.round(secPerKm);
+return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+function vdotFromRace(km, sec) {
+const t = sec / 60;
+const v = (km * 1000) / t;
+const vo2 = -4.6 + 0.182258 * v + 0.000104 * v * v;
+const share = 0.8 + 0.1894393 * Math.exp(-0.012778 * t) + 0.2989558 * Math.exp(-0.1932605 * t);
+return vo2 / share;
+}
+function paceAt(vdot, fraction) {
+const vo2 = vdot * fraction;
+const a = 0.000104;
+const b = 0.182258;
+const c = -4.6 - vo2;
+const metresPerMin = (-b + Math.sqrt(b * b - 4 * a * c)) / (2 * a);
+return 60000 / metresPerMin;
+}
+function trainingPaces(vdot) {
+return {
+easyFast: paceAt(vdot, 0.7),
+easySlow: paceAt(vdot, 0.62),
+tempo: paceAt(vdot, 0.88),
+interval: paceAt(vdot, 0.975),
+};
+}
+function planPaces(plan) {
+const km = DISTANCE_KM[plan.goal] || 5;
+const current = parseTime(plan.currentTime);
+if (!current) return null;
+const vdot = vdotFromRace(km, current);
+const goal = parseTime(plan.goalTime);
+return {
+vdot,
+...trainingPaces(vdot),
+distanceName: GOAL_NAMES[plan.goal] || '5K',
+current,
+currentPace: current / km,
+goal,
+goalPace: goal ? goal / km : null,
+};
+}
+function riegel(km, sec, targetKm) {
+return sec * (targetKm / km) ** 1.06;
+}
+module.exports = { DISTANCE_KM, parseTime, formatTime, formatPace, vdotFromRace, paceAt, trainingPaces, planPaces, riegel };
 },
 'adapters/garmin-browser.js': function (module, exports, __req) {
 const { addDays } = __req('core/stats.js');
@@ -660,6 +742,7 @@ activities.push({
 start: String(a.startTimeLocal).replace(' ', 'T'),
 type: a.activityType?.typeKey || 'unknown',
 durationS: Math.round(a.duration || 0),
+movingS: a.movingDuration ? Math.round(a.movingDuration) : null,
 distanceM: Math.round(a.distance || 0),
 avgHr: a.averageHR ?? null,
 maxHr: a.maxHR ?? null,

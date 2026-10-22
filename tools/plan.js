@@ -7,7 +7,7 @@ const path = require('path');
 const { planWeek } = require('../src/runner');
 
 const args = process.argv.slice(2);
-const file = args.find((a) => !a.startsWith('--')) || path.join(os.homedir(), '.headroom', 'config.json');
 const i = args.indexOf('--date');
+const file = args.find((a, n) => !a.startsWith('--') && !(i >= 0 && n === i + 1)) || path.join(os.homedir(), '.headroom', 'config.json');
 const config = JSON.parse(fs.readFileSync(file, 'utf8'));
 console.log(planWeek({ config, date: i >= 0 ? args[i + 1] : undefined }));

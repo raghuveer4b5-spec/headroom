@@ -1,6 +1,7 @@
 // Weekly run plan that fits around the user's strength days, plus today's session
 // adjusted by readiness. Running is prescribed; strength training is a black box we only schedule around.
 const { daysBetween, clamp } = require('./stats');
+const { planPaces, formatPace } = require('./pace');
 
 const WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const PEAK_KM = { '5k': 25, '10k': 35, half: 45, fitness: 25 };
@@ -123,11 +124,18 @@ function buildWeek(prefs, date, maxHr) {
   const z2 = Math.round(0.7 * maxHr);
   const t1 = Math.round(0.85 * maxHr);
   const t2 = Math.round(0.9 * maxHr);
+  // Paces come from the user's current race time when known; heart rate stays as the guard rail.
+  const paces = planPaces(prefs);
+  const easyPace = paces ? ` at ${formatPace(paces.easyFast)}-${formatPace(paces.easySlow)}/km` : '';
   const text = {
-    easy: (km) => `Easy ${km} km, Zone 2 (keep HR under ${z2} bpm)`,
-    long: (km) => `Long easy run ${km} km, Zone 2 (under ${z2} bpm)`,
-    intervals: () => `Intervals: 1.5 km warm-up, ${reps} x 1 km hard (effort 8/10) with 2 min jog, 1 km cool-down`,
-    tempo: () => `Tempo: 1.5 km warm-up, ${tempoMin} min comfortably hard (${t1}-${t2} bpm), 1 km cool-down`,
+    easy: (km) => `Easy ${km} km${easyPace}, Zone 2 (keep HR under ${z2} bpm)`,
+    long: (km) => `Long easy run ${km} km${easyPace}, Zone 2 (under ${z2} bpm)`,
+    intervals: () => paces
+      ? `Intervals: 1.5 km warm-up, ${reps} x 1 km at ${formatPace(paces.interval)}/km with 2 min jog, 1 km cool-down`
+      : `Intervals: 1.5 km warm-up, ${reps} x 1 km hard (effort 8/10) with 2 min jog, 1 km cool-down`,
+    tempo: () => paces
+      ? `Tempo: 1.5 km warm-up, ${tempoMin} min at ${formatPace(paces.tempo)}/km (${t1}-${t2} bpm), 1 km cool-down`
+      : `Tempo: 1.5 km warm-up, ${tempoMin} min comfortably hard (${t1}-${t2} bpm), 1 km cool-down`,
   };
 
   // Two short runner-strength blocks a week: tacked onto strength days first, then easy days.
@@ -143,7 +151,7 @@ function buildWeek(prefs, date, maxHr) {
     else if (runDays.includes(d)) run = { type: 'easy', km: easyKm, text: text.easy(easyKm) };
     days[d] = { run, strength: liftDays.includes(d), accessory: accessoryDays.includes(d) };
   }
-  return { week: target.week, targetKm: plannedKm, recovery: target.recovery, runDays, days, notes, text };
+  return { week: target.week, targetKm: plannedKm, recovery: target.recovery, runDays, days, notes, text, paces };
 }
 
 const RUN_NAMES = { easy: 'Easy', long: 'Long run', intervals: 'Intervals', tempo: 'Tempo' };

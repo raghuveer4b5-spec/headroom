@@ -2,6 +2,7 @@
 // Needs only the config, not Garmin data, so it never depends on the browser session.
 const { buildWeek, WEEKDAYS, weekdayOf, ACCESSORY } = require('../core/plan');
 const { addDays, round } = require('../core/stats');
+const { formatPace, formatTime } = require('../core/pace');
 const { INK, MUTED, esc, longDate, card, label, page } = require('./style');
 
 const TYPE = {
@@ -14,8 +15,11 @@ const STRENGTH_COLOR = '#888780';
 const GOALS = { '5k': '5K', '10k': '10K', half: 'half marathon', fitness: 'general fitness' };
 
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
-// "Easy 2.5 km, Zone 2 (...)" -> "Zone 2 (...)"; "Intervals: 1.5 km warm-up, ..." -> "1.5 km warm-up, ..."
-const detailOf = (text) => text.replace(/^[^:,]+[:,]\s*/, '');
+// "Easy 2.5 km at 6:48-7:29/km, Zone 2 (...)" -> "6:48-7:29/km, Zone 2 (...)"; "Intervals: 1.5 km ..." -> "1.5 km ..."
+const detailOf = (text) =>
+  text
+    .replace(/^(Easy|Long easy run) [\d.]+ km(, | at )?/, '')
+    .replace(/^(Intervals|Tempo): /, '');
 
 function mondayOf(date) {
   return addDays(date, -WEEKDAYS.indexOf(weekdayOf(date)));
@@ -38,10 +42,19 @@ function renderWeeklyEmail(config, weekStart) {
   // Describe the change against last week's actual plan, not the nominal 10% build.
   const prevKm = week.week > 1 ? round(buildWeek(plan, addDays(monday, -7), maxHr).targetKm, 1) : null;
   let change;
-  if (week.recovery) change = 'A lighter week to absorb the last three: distance drops so the next build starts fresh.';
-  else if (prevKm === null) change = 'Week 1 starts from what you have actually been running lately.';
-  else if (km > prevKm) change = `Up ${Math.round(((km - prevKm) / prevKm) * 100)}% on last week.`;
-  else change = 'Same distance as last week while your weekly average catches up with your long run.';
+  if (week.recovery) change = 'A lighter week to absorb the last three, so the next build starts fresh.';
+  else if (prevKm === null) change = "Week 1 is based on what you've actually been running lately.";
+  else if (km > prevKm) change = `Up ${Math.round(((km - prevKm) / prevKm) * 100)}% on last week's ${prevKm} km.`;
+  else change = `The same ${km} km as last week. Your long run is already ahead of your usual weekly distance, so the total holds steady until the rest of your week catches up.`;
+  const p = week.paces;
+  const timesLine = p
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:14px"><tr>
+<td width="50%" valign="top" bgcolor="#F6F7F9" style="background:#F6F7F9;border-radius:8px;padding:10px 12px"><p style="margin:0;font-size:12px;color:${MUTED}">${esc(p.distanceName)} now</p><p style="margin:2px 0 0;font-size:17px;font-weight:700;color:${INK}">${formatTime(p.current)}</p><p style="margin:0;font-size:12px;color:${MUTED}">${formatPace(p.currentPace)}/km</p></td>
+<td width="8">&nbsp;</td>
+<td width="50%" valign="top" bgcolor="#F6F7F9" style="background:#F6F7F9;border-radius:8px;padding:10px 12px"><p style="margin:0;font-size:12px;color:${MUTED}">Goal</p><p style="margin:2px 0 0;font-size:17px;font-weight:700;color:${INK}">${p.goal ? formatTime(p.goal) : 'Not set'}</p><p style="margin:0;font-size:12px;color:${MUTED}">${p.goalPace ? `${formatPace(p.goalPace)}/km` : '&nbsp;'}</p></td>
+</tr></table>
+<p style="margin:10px 0 0;font-size:13px;color:${MUTED}">Your paces: easy ${formatPace(p.easyFast)}-${formatPace(p.easySlow)} · tempo ${formatPace(p.tempo)} · intervals ${formatPace(p.interval)} per km</p>`
+    : '';
   const spacing = hard > 1
     ? 'Hard runs are 48 hours apart and kept off the day after strength training where the week allows.'
     : 'One hard run, kept off the day after strength training where the week allows.';
@@ -70,7 +83,7 @@ function renderWeeklyEmail(config, weekStart) {
 
   const hero = card(`${label(`WEEK ${week.week}${week.recovery ? ' · LIGHTER WEEK' : ''}`)}
 <p style="margin:0;font-size:30px;font-weight:700;color:${INK}">${km} km</p>
-<p style="margin:4px 0 0;font-size:14px;color:${MUTED}">${runs} runs (${hard} hard) · ${gym} strength days · ${esc(goal)} goal</p>
+<p style="margin:4px 0 0;font-size:14px;color:${MUTED}">${runs} runs (${hard} hard) · ${gym} strength days · ${esc(goal)} goal</p>${timesLine}
 <p style="margin:14px 0 0;font-size:14px;line-height:1.55;color:${INK}">${esc(`${change} ${spacing}`)}</p>`);
 
   const schedule = card(`${label('THE PLAN')}<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>`);

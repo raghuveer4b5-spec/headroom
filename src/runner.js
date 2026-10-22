@@ -4,6 +4,7 @@ const { computeReadiness, DEFAULT_CONFIG } = require('./core/readiness');
 const { isHard, observedMaxHr } = require('./core/load');
 const { addDays, daysBetween, round } = require('./core/stats');
 const { todaySession, weekdayOf, buildWeek, WEEKDAYS } = require('./core/plan');
+const { DISTANCE_KM, riegel, formatTime } = require('./core/pace');
 const { fetchCommon } = require('./adapters/garmin-browser');
 
 const PAGE = 900;
@@ -103,8 +104,20 @@ async function profile({ days = 90 } = {}) {
     const wd = weekdayOf(a.start.slice(0, 10));
     liftCounts[wd] = (liftCounts[wd] || 0) + 1;
   }
+  // Current race times, estimated from the best recent run of 3 km or more (Riegel). These
+  // pre-fill the questionnaire; the user confirms or corrects them.
+  const estimates = {};
+  for (const [goal, km] of Object.entries(DISTANCE_KM)) {
+    if (goal === 'fitness') continue;
+    const best = data.activities
+      .filter((a) => a.type.includes('running') && a.distanceM >= 3000 && (a.movingS || a.durationS))
+      .map((a) => riegel(a.distanceM / 1000, a.movingS || a.durationS, km))
+      .sort((x, y) => x - y)[0];
+    if (best) estimates[goal] = formatTime(best);
+  }
   return JSON.stringify({
     status: 'ok',
+    estimatedTimes: estimates,
     weeklyRunKm4w: round(runKm / 4, 1),
     longestRunKm4w: round(longestRunKm, 1),
     usualLiftDays: Object.keys(liftCounts).filter((wd) => liftCounts[wd] >= 2),

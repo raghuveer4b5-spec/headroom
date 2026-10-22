@@ -125,6 +125,7 @@ async function fetchCommon({ startDate, endDate, sleepFrom }) {
         start: String(a.startTimeLocal).replace(' ', 'T'),
         type: a.activityType?.typeKey || 'unknown',
         durationS: Math.round(a.duration || 0),
+        movingS: a.movingDuration ? Math.round(a.movingDuration) : null,
         distanceM: Math.round(a.distance || 0),
         avgHr: a.averageHR ?? null,
         maxHr: a.maxHR ?? null,

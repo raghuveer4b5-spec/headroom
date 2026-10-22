@@ -29,10 +29,19 @@ test('every day appears with its full session, and strength stays a black box', 
 });
 
 test('the week-on-week line matches the actual change in planned distance', () => {
-  assert.match(renderWeeklyEmail(CONFIG, '2026-10-19').html, /Week 1 starts from/);
-  assert.match(renderWeeklyEmail(CONFIG, '2026-10-26').html, /Same distance as last week/);
+  assert.match(renderWeeklyEmail(CONFIG, '2026-10-19').html, /Week 1 is based on/);
+  assert.match(renderWeeklyEmail(CONFIG, '2026-10-26').html, /The same [\d.]+ km as last week/);
   const growing = { ...CONFIG, plan: { ...CONFIG.plan, baseWeeklyKm: 20, baseLongKm: 6 } };
   assert.match(renderWeeklyEmail(growing, '2026-10-26').html, /Up \d+% on last week/);
+});
+
+test('current and goal times and the paces appear when known', () => {
+  const config = { ...CONFIG, plan: { ...CONFIG.plan, currentTime: '27:03', goalTime: '26:00' } };
+  const { html } = renderWeeklyEmail(config, '2026-10-26');
+  assert.match(html, /5K now<\/p><p[^>]*>27:03/);
+  assert.match(html, /26:00/);
+  assert.match(html, /Your paces: easy \d:\d\d-\d:\d\d · tempo \d:\d\d · intervals \d:\d\d per km/);
+  assert.match(html, />\d:\d\d-\d:\d\d\/km, Zone 2/, 'easy detail starts with the pace, not a broken fragment');
 });
 
 test('the fourth week is flagged as lighter', () => {
