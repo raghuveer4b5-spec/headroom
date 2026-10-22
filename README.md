@@ -43,8 +43,6 @@ Already have Garmin Training Readiness on your watch? Headroom uses it.
 
 ## New to running? Start from zero
 
-<img src="docs/beginner-preview.png" width="250" align="right" alt="Beginner plan email: stage 6 of 14, run 5 minutes and walk 1.5 minutes, three sessions around three gym days">
-
 Can't run 2K yet? Beginner mode takes you from short run/walk intervals to 30 minutes non-stop, about a 5K for most new runners.
 
 - **14 small stages.** Your longest run never grows more than 50% in one step. No sudden jumps.
@@ -54,7 +52,10 @@ Can't run 2K yet? Beginner mode takes you from short run/walk intervals to 30 mi
 
 Set up once, and Headroom picks your starting stage from how long you can run today.
 
-<br clear="right">
+<p align="center">
+  <img src="docs/beginner-preview.png" width="280" alt="Beginner plan email: stage 6 of 14, run 5 minutes and walk 1.5 minutes, three sessions around three gym days">
+  <br><sub>A beginner's Sunday plan, shown with sample data.</sub>
+</p>
 
 
 ## Get started
