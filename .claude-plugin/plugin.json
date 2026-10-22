@@ -1,6 +1,6 @@
 {
-  "name": "splits",
-  "displayName": "Splits",
+  "name": "headroom",
+  "displayName": "Headroom",
   "version": "0.1.0",
   "description": "A daily training readiness score for watches that don't have one, run by your own Claude on your own Garmin data.",
   "author": { "name": "Raghuveer" },

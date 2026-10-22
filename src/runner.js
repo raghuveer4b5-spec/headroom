@@ -17,13 +17,13 @@ function paged(text) {
   pending = [];
   for (let i = 0; i < text.length; i += PAGE) pending.push(text.slice(i, i + PAGE));
   if (pending.length <= 1) return text;
-  return `${pending[0]}\n[page 1/${pending.length}; call Splits.more(2)]`;
+  return `${pending[0]}\n[page 1/${pending.length}; call Headroom.more(2)]`;
 }
 
 function more(n) {
   const chunk = pending[n - 1];
   if (chunk === undefined) return '[no such page]';
-  return n < pending.length ? `${chunk}\n[page ${n}/${pending.length}; call Splits.more(${n + 1})]` : chunk;
+  return n < pending.length ? `${chunk}\n[page ${n}/${pending.length}; call Headroom.more(${n + 1})]` : chunk;
 }
 
 const AUTH_MESSAGE = 'Garmin session expired. Reload connect.garmin.com (sign in if asked), then run again.';
@@ -53,7 +53,7 @@ async function morningCheck({ date, config } = {}) {
     score: r.score,
     band: r.band,
     source: r.source,
-    splitsScore: r.splitsScore,
+    estimateScore: r.estimateScore,
     message,
     suggestion: r.suggestion,
     limiters: r.limiters,
@@ -88,7 +88,7 @@ async function backtest({ endDate, days = 60, config } = {}) {
   return paged(`${legend}\n${rows.join(' ')}`);
 }
 
-// For setup: what Splits can see in the last 90 days, to pre-fill the questionnaire.
+// For setup: what Headroom can see in the last 90 days, to pre-fill the questionnaire.
 async function profile({ days = 90 } = {}) {
   const end = localToday();
   const data = await fetchCommon({ startDate: addDays(end, -(days - 1)), endDate: end, sleepFrom: end });

@@ -12,8 +12,8 @@ const RESULT = {
   status: 'ok',
   score: 44,
   band: 'Low',
-  source: 'Splits estimate',
-  splitsScore: 44,
+  source: 'Headroom estimate',
+  estimateScore: 44,
   suggestion: 'Keep it easy and short, or cross-train.',
   limiters: ['short or poor sleep (5h10, score 58)'],
   components: { hrv: 52, rhr: 60, sleep: 31, load: 70, bodyBattery: 50 },
@@ -46,7 +46,7 @@ test('user text is escaped', () => {
 
 test('a failed check still sends a short, clear email', () => {
   const r = renderEmail({ date: '2026-10-24', status: 'no-sync', message: "Today's overnight data hasn't synced yet." }, CONFIG);
-  assert.equal(r.subject, 'Splits: no readiness score today');
+  assert.equal(r.subject, 'Headroom: no readiness score today');
   assert.match(r.text, /hasn't synced/);
 });
 

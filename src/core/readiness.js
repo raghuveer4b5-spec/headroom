@@ -137,12 +137,12 @@ function computeReadiness(data, date, config = {}) {
   const base = { date, components, inputs, missing, caps };
   const keys = Object.keys(components);
   const ownAvailable = components.hrv !== undefined || components.rhr !== undefined;
-  let splitsScore = null;
+  let estimateScore = null;
   if (ownAvailable) {
     const weightSum = keys.reduce((s, k) => s + cfg.weights[k], 0);
-    splitsScore = keys.reduce((s, k) => s + components[k] * cfg.weights[k], 0) / weightSum;
-    if (caps.length) splitsScore = Math.min(splitsScore, 30);
-    splitsScore = Math.round(splitsScore);
+    estimateScore = keys.reduce((s, k) => s + components[k] * cfg.weights[k], 0) / weightSum;
+    if (caps.length) estimateScore = Math.min(estimateScore, 30);
+    estimateScore = Math.round(estimateScore);
   }
 
   // The watch's own readiness score wins when it has one; ours stays as the explanation
@@ -152,12 +152,12 @@ function computeReadiness(data, date, config = {}) {
 
   if (!useDevice && !ownAvailable) {
     const status = hrvHist.length < cfg.minHistoryDays && rhrHist.length < cfg.minHistoryDays ? 'calibrating' : 'no-sync';
-    return { ...base, status, score: null, band: null, source: null, splitsScore, limiters: [], suggestion: null, message: statusMessage(status) };
+    return { ...base, status, score: null, band: null, source: null, estimateScore, limiters: [], suggestion: null, message: statusMessage(status) };
   }
 
-  const score = useDevice ? Math.round(clamp(device.score)) : splitsScore;
+  const score = useDevice ? Math.round(clamp(device.score)) : estimateScore;
   const band = bandFor(score);
-  const source = useDevice ? device.source || 'device' : 'Splits estimate';
+  const source = useDevice ? device.source || 'device' : 'Headroom estimate';
   const limiters = [
     ...caps,
     ...keys
@@ -169,7 +169,7 @@ function computeReadiness(data, date, config = {}) {
   const suggestion = SUGGESTIONS[band];
   const label = useDevice ? ` (${source})` : '';
   const message = `Readiness ${score} · ${band}${label}. ${suggestion}${limiters.length ? ` ${useDevice ? 'Worth knowing' : 'Held back by'}: ${limiters.join('; ')}.` : ''}`;
-  return { ...base, status: 'ok', score, band, source, splitsScore, limiters, suggestion, message };
+  return { ...base, status: 'ok', score, band, source, estimateScore, limiters, suggestion, message };
 }
 
 function statusMessage(status) {

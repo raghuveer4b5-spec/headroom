@@ -5,7 +5,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const file = path.join(os.homedir(), '.splits', 'email.html');
+const file = path.join(os.homedir(), '.headroom', 'email.html');
 http
   .createServer((req, res) => {
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });

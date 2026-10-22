@@ -16,12 +16,12 @@ function paged(text) {
 pending = [];
 for (let i = 0; i < text.length; i += PAGE) pending.push(text.slice(i, i + PAGE));
 if (pending.length <= 1) return text;
-return `${pending[0]}\n[page 1/${pending.length}; call Splits.more(2)]`;
+return `${pending[0]}\n[page 1/${pending.length}; call Headroom.more(2)]`;
 }
 function more(n) {
 const chunk = pending[n - 1];
 if (chunk === undefined) return '[no such page]';
-return n < pending.length ? `${chunk}\n[page ${n}/${pending.length}; call Splits.more(${n + 1})]` : chunk;
+return n < pending.length ? `${chunk}\n[page ${n}/${pending.length}; call Headroom.more(${n + 1})]` : chunk;
 }
 const AUTH_MESSAGE = 'Garmin session expired. Reload connect.garmin.com (sign in if asked), then run again.';
 function authExpired(data) {
@@ -46,7 +46,7 @@ status: r.status,
 score: r.score,
 band: r.band,
 source: r.source,
-splitsScore: r.splitsScore,
+estimateScore: r.estimateScore,
 message,
 suggestion: r.suggestion,
 limiters: r.limiters,
@@ -247,22 +247,22 @@ inputs.bodyBattery = today.bodyBatteryWake;
 const base = { date, components, inputs, missing, caps };
 const keys = Object.keys(components);
 const ownAvailable = components.hrv !== undefined || components.rhr !== undefined;
-let splitsScore = null;
+let estimateScore = null;
 if (ownAvailable) {
 const weightSum = keys.reduce((s, k) => s + cfg.weights[k], 0);
-splitsScore = keys.reduce((s, k) => s + components[k] * cfg.weights[k], 0) / weightSum;
-if (caps.length) splitsScore = Math.min(splitsScore, 30);
-splitsScore = Math.round(splitsScore);
+estimateScore = keys.reduce((s, k) => s + components[k] * cfg.weights[k], 0) / weightSum;
+if (caps.length) estimateScore = Math.min(estimateScore, 30);
+estimateScore = Math.round(estimateScore);
 }
 const device = cfg.useDeviceReadiness === false ? null : today.deviceReadiness;
 const useDevice = Boolean(device && isNum(device.score));
 if (!useDevice && !ownAvailable) {
 const status = hrvHist.length < cfg.minHistoryDays && rhrHist.length < cfg.minHistoryDays ? 'calibrating' : 'no-sync';
-return { ...base, status, score: null, band: null, source: null, splitsScore, limiters: [], suggestion: null, message: statusMessage(status) };
+return { ...base, status, score: null, band: null, source: null, estimateScore, limiters: [], suggestion: null, message: statusMessage(status) };
 }
-const score = useDevice ? Math.round(clamp(device.score)) : splitsScore;
+const score = useDevice ? Math.round(clamp(device.score)) : estimateScore;
 const band = bandFor(score);
-const source = useDevice ? device.source || 'device' : 'Splits estimate';
+const source = useDevice ? device.source || 'device' : 'Headroom estimate';
 const limiters = [
 ...caps,
 ...keys
@@ -274,7 +274,7 @@ const limiters = [
 const suggestion = SUGGESTIONS[band];
 const label = useDevice ? ` (${source})` : '';
 const message = `Readiness ${score} · ${band}${label}. ${suggestion}${limiters.length ? ` ${useDevice ? 'Worth knowing' : 'Held back by'}: ${limiters.join('; ')}.` : ''}`;
-return { ...base, status: 'ok', score, band, source, splitsScore, limiters, suggestion, message };
+return { ...base, status: 'ok', score, band, source, estimateScore, limiters, suggestion, message };
 }
 function statusMessage(status) {
 if (status === 'calibrating') return 'Readiness is calibrating: it needs about 14 days of HRV and resting HR history.';
@@ -688,5 +688,5 @@ cache[id] = module;
 defs[id](module, module.exports, __req);
 return module.exports;
 }
-globalThis.Splits = __req('runner.js');
+globalThis.Headroom = __req('runner.js');
 })();

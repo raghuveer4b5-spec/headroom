@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// Bundles src/ (CommonJS) into one browser script that defines globalThis.Splits.
+// Bundles src/ (CommonJS) into one browser script that defines globalThis.Headroom.
 const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
 const SRC = path.join(ROOT, 'src');
-const OUT = path.join(ROOT, 'skills', 'splits-readiness', 'scripts', 'splits-garmin.js');
+const OUT = path.join(ROOT, 'skills', 'readiness', 'scripts', 'headroom-garmin.js');
 
 const modules = new Map();
 
@@ -54,7 +54,7 @@ function __req(id) {
   defs[id](module, module.exports, __req);
   return module.exports;
 }
-globalThis.Splits = __req('runner.js');
+globalThis.Headroom = __req('runner.js');
 })();
 `) + '\n';
 

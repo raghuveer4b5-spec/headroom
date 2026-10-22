@@ -1,15 +1,15 @@
 ---
-name: splits-setup
-description: Setup questionnaire for Splits. Checks the user's Garmin data, asks about the morning check (time, notifications, max HR) and their training (goal, runs per week, long-run day, strength days, priority), then saves ~/.splits/config.json, builds a weekly run plan around their strength training, and schedules the morning check. Use when the user installs Splits, asks to set it up, or wants to change their schedule, notifications, max HR or training plan.
+name: setup
+description: Setup questionnaire for Headroom. Checks the user's Garmin data, asks about the morning check (time, notifications, max HR) and their training (goal, runs per week, long-run day, strength days, priority), then saves ~/.headroom/config.json, builds a weekly run plan around their strength training, and schedules the morning check. Use when the user installs Headroom, asks to set it up, or wants to change their schedule, notifications, max HR or training plan.
 ---
 
-# Splits setup
+# Headroom setup
 
 Two short rounds of questions, then a saved config, a weekly plan, a scheduled morning check, and one test run. Re-running setup updates the existing config and schedule instead of adding a second one; keep answers the user doesn't change.
 
 ## 1. Check the data
 
-Follow steps 1-3 of the morning check in the `splits-readiness` skill (fresh Chrome tab on `https://connect.garmin.com/app/home`, user signed in). Then run one `javascript_tool` call with the full contents of `../splits-readiness/scripts/splits-garmin.js` (relative to this skill's directory), a new line, and `await Splits.profile()`. Keep the tab open for the test run in step 6.
+Follow steps 1-3 of the morning check in the `headroom:readiness` skill (fresh Chrome tab on `https://connect.garmin.com/app/home`, user signed in). Then run one `javascript_tool` call with the full contents of `../readiness/scripts/headroom-garmin.js` (relative to this skill's directory), a new line, and `await Headroom.profile()`. Keep the tab open for the test run in step 6.
 
 It returns `weeklyRunKm4w` (average running km per week, last 4 weeks), `longestRunKm4w`, `usualLiftDays` (weekdays with 2+ strength sessions in the last 4 weeks), `observedMaxHr`, `daysWithHrv` and `readyToScore`. If `readyToScore` is false, tell the user the score needs about 14 nights of HRV data from wearing the watch overnight; setup can continue now.
 
@@ -33,7 +33,7 @@ Strength training is a black box: ask only which days, never what the sessions t
 
 ## 3. Save the config
 
-Write `~/.splits/config.json` (create the folder if needed):
+Write `~/.headroom/config.json` (create the folder if needed):
 
 ```json
 {
@@ -64,13 +64,13 @@ Write `~/.splits/config.json` (create the folder if needed):
 
 ## 4. Show the plan
 
-In the same tab, run `Splits.planWeek({ config: <the config object> })` and show the week to the user as a short table (day, run, strength). Mention any `note:` lines. Ask if they want to change anything before scheduling.
+In the same tab, run `Headroom.planWeek({ config: <the config object> })` and show the week to the user as a short table (day, run, strength). Mention any `note:` lines. Ask if they want to change anything before scheduling.
 
 ## 5. Schedule the morning check
 
-Use the scheduled-task tool available in this app to create, or update if it already exists, a daily task named **Splits morning check** at `morningTime`, in the user's local time zone, with this prompt:
+Use the scheduled-task tool available in this app to create, or update if it already exists, a daily task named **Headroom morning check** at `morningTime`, in the user's local time zone, with this prompt:
 
-> Scheduled run: use the splits-readiness skill to run my morning check. Follow the notify setting in ~/.splits/config.json. Don't ask for feedback.
+> Scheduled run: use the headroom:readiness skill to run my morning check. Follow the notify setting in ~/.headroom/config.json. Don't ask for feedback.
 
 If no scheduling tool is available, say so, and tell the user they can ask Claude for "my readiness" each morning instead.
 
@@ -78,4 +78,4 @@ Scheduled runs are unattended, so any permission prompt stops them. Tell the use
 
 ## 6. Test run
 
-Run the morning check once now with the new config (`splits-readiness` skill), so the user sees exactly what the morning notification says, including today's workout. Then confirm the setup in two or three lines: time, notification rule, plan summary.
+Run the morning check once now with the new config (`headroom:readiness` skill), so the user sees exactly what the morning notification says, including today's workout. Then confirm the setup in two or three lines: time, notification rule, plan summary.

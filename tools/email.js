@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 // Turns a morning-check result into the morning email.
 // Usage: node tools/email.js <result.json> [config.json]
-// Writes ~/.splits/email.json ({ to, subject, html, text }) and ~/.splits/email.html (preview).
+// Writes ~/.headroom/email.json ({ to, subject, html, text }) and ~/.headroom/email.html (preview).
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { renderEmail } = require('../src/email/render');
 
-const dir = path.join(os.homedir(), '.splits');
+const dir = path.join(os.homedir(), '.headroom');
 const [resultFile, configFile = path.join(dir, 'config.json')] = process.argv.slice(2);
 if (!resultFile) {
   console.error('Usage: node tools/email.js <result.json> [config.json]');

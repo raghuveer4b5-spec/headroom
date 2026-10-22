@@ -88,18 +88,18 @@ test("the watch's own readiness score is used when available", () => {
   assert.equal(r.score, 41);
   assert.equal(r.band, 'Low');
   assert.equal(r.source, 'Garmin Training Readiness');
-  assert.ok(r.splitsScore > 41, 'Splits estimate is kept for comparison');
+  assert.ok(r.estimateScore > 41, 'Headroom estimate is kept for comparison');
   assert.match(r.message, /^Readiness 41 · Low \(Garmin Training Readiness\)/);
 });
 
-test('device readiness can be turned off, and works before Splits has a baseline', () => {
+test('device readiness can be turned off, and works before Headroom has a baseline', () => {
   const data = syntheticData({ overrides: { [DATE]: { deviceReadiness: { score: 82, source: 'Garmin Training Readiness' } } } });
-  assert.equal(computeReadiness(data, DATE, { useDeviceReadiness: false }).source, 'Splits estimate');
+  assert.equal(computeReadiness(data, DATE, { useDeviceReadiness: false }).source, 'Headroom estimate');
   const fresh = syntheticData({ length: 5, overrides: { [DATE]: { deviceReadiness: { score: 82, source: 'Garmin Training Readiness' } } } });
   const r = computeReadiness(fresh, DATE);
   assert.equal(r.status, 'ok');
   assert.equal(r.score, 82);
-  assert.equal(r.splitsScore, null);
+  assert.equal(r.estimateScore, null);
 });
 
 test('bands and ratio scoring boundaries', () => {

@@ -78,10 +78,10 @@ function renderEmail(result, config = {}) {
   const maxHr = config.maxHr || 190;
 
   if (result.status !== 'ok') {
-    const subject = 'Splits: no readiness score today';
+    const subject = 'Headroom: no readiness score today';
     const text = `${result.message}\n\nNothing else to do; tomorrow's check runs as usual.`;
     const html = `<div style="font-family:${FONT};color:${INK};max-width:560px;margin:0 auto;padding:24px">
-<p style="margin:0 0 4px;color:${MUTED};font-size:13px">Splits · ${esc(longDate(date))}</p>
+<p style="margin:0 0 4px;color:${MUTED};font-size:13px">Headroom · ${esc(longDate(date))}</p>
 <h1 style="margin:0 0 12px;font-size:20px;font-weight:600">No readiness score today</h1>
 <p style="margin:0;font-size:15px;line-height:1.6">${esc(result.message)}</p></div>`;
     return { subject, html, text };
@@ -92,10 +92,10 @@ function renderEmail(result, config = {}) {
   const subject = `Readiness ${result.score} · ${result.band}${today ? ` · ${today.short}` : ''}`;
   const rows = componentRows(result.components || {}, result.inputs || {});
   const limiters = result.limiters || [];
-  const fromDevice = result.source && result.source !== 'Splits estimate';
+  const fromDevice = result.source && result.source !== 'Headroom estimate';
   const sourceLine = fromDevice
-    ? `${esc(result.source)}${result.splitsScore !== null && result.splitsScore !== undefined ? ` · Splits estimate ${result.splitsScore}` : ''}`
-    : 'Splits estimate from your Garmin data';
+    ? `${esc(result.source)}${result.estimateScore !== null && result.estimateScore !== undefined ? ` · Headroom estimate ${result.estimateScore}` : ''}`
+    : 'Headroom estimate from your Garmin data';
   const preheader = today ? `Today: ${today.short}.` : result.suggestion || '';
 
   const card = (inner, extra = '') =>
@@ -154,13 +154,13 @@ function renderEmail(result, config = {}) {
 <div style="display:none;max-height:0;overflow:hidden;opacity:0">${esc(preheader)}</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F3F4F6;font-family:${FONT}"><tr><td align="center" style="padding:24px 12px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px">
-<tr><td style="padding:0 4px 14px"><p style="margin:0;font-size:13px;color:${MUTED}"><strong style="color:${INK}">Splits</strong> · ${esc(longDate(date))}</p></td></tr>
+<tr><td style="padding:0 4px 14px"><p style="margin:0;font-size:13px;color:${MUTED}"><strong style="color:${INK}">Headroom</strong> · ${esc(longDate(date))}</p></td></tr>
 ${hero}${workout}${why}${week}
-<tr><td style="padding:6px 4px 0"><p style="margin:0;font-size:11px;line-height:1.6;color:#9CA3AF">An estimate for training decisions, not medical advice. To change the time, notifications or your plan, ask Claude to set up Splits again.</p></td></tr>
+<tr><td style="padding:6px 4px 0"><p style="margin:0;font-size:11px;line-height:1.6;color:#9CA3AF">An estimate for training decisions, not medical advice. To change the time, notifications or your plan, ask Claude to set up Headroom again.</p></td></tr>
 </table></td></tr></table></body></html>`;
 
   const textLines = [
-    `Readiness ${result.score} · ${result.band} (${fromDevice ? result.source : 'Splits estimate'})`,
+    `Readiness ${result.score} · ${result.band} (${fromDevice ? result.source : 'Headroom estimate'})`,
     result.suggestion || '',
     today ? `\nToday: ${today.suggestion}` : '',
     today && today.accessory ? today.accessory : '',

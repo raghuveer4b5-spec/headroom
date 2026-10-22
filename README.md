@@ -1,6 +1,6 @@
-# Splits
+# Headroom
 
-**A morning check-in that tells you how hard to train today, and why.** Splits reads the recovery data your watch already records, scores it against your own normal, and emails you a readiness score with today's workout from a running plan built around your strength days. It runs on your own Claude, against your own Garmin account. No app, no server, no account to create.
+**A morning check-in that tells you how hard to train today, and why.** Headroom reads the recovery data your watch already records, scores it against your own normal, and emails you a readiness score with today's workout from a running plan built around your strength days. It runs on your own Claude, against your own Garmin account. No app, no server, no account to create.
 
 > **Readiness 64 · Moderate · Easy 3 km**
 > Planned session is fine; keep hard efforts controlled, or swap to easy if you feel off.
@@ -16,9 +16,9 @@ The warning signs tend to show up in data before they show up as pain:
 - **Recovery that hasn't caught up.** Overnight heart rate variability (HRV) dropping below your own normal, and resting heart rate creeping up, are signs your body is still dealing with the last few days. Training that follows HRV, going hard when it's normal and easing off when it's suppressed, has produced the same or better fitness gains as a fixed plan ([Vesterinen et al., 2016](https://pubmed.ncbi.nlm.nih.gov/26909534/)).
 - **Short sleep.** Adolescent athletes sleeping under 8 hours had a higher injury rate than those who slept more ([Milewski et al., 2014](https://pubmed.ncbi.nlm.nih.gov/25028798/)).
 
-Higher-end watches turn these signals into a single daily number (Garmin calls it Training Readiness). Many good watches, such as the Forerunner 165, record every input but never combine them. Splits does that combining, and then does the one thing a number alone doesn't: it changes what you're told to do today.
+Higher-end watches turn these signals into a single daily number (Garmin calls it Training Readiness). Many good watches, such as the Forerunner 165, record every input but never combine them. Headroom does that combining, and then does the one thing a number alone doesn't: it changes what you're told to do today.
 
-**What it is honest about:** no score prevents injuries. Splits flags the conditions that make them more likely, so you can ease off on the days that matter. The acute:chronic ratio is a useful rule of thumb, not a law (its predictive power has been questioned, e.g. [Impellizzeri et al., 2020](https://pubmed.ncbi.nlm.nih.gov/32502973/)), and the weights in the score are a reasoned starting point, tuned with your own feedback over time.
+**What it is honest about:** no score prevents injuries. Headroom flags the conditions that make them more likely, so you can ease off on the days that matter. The acute:chronic ratio is a useful rule of thumb, not a law (its predictive power has been questioned, e.g. [Impellizzeri et al., 2020](https://pubmed.ncbi.nlm.nih.gov/32502973/)), and the weights in the score are a reasoned starting point, tuned with your own feedback over time.
 
 ## What you get each morning
 
@@ -35,24 +35,24 @@ If the check can't run (your watch hasn't synced, or the Garmin session expired)
 
 ```mermaid
 flowchart TD
-    A[Setup questionnaire<br/>time, delivery, max HR,<br/>goal, runs/week, long-run day,<br/>strength days, priority] --> B[~/.splits/config.json<br/>+ daily scheduled task]
+    A[Setup questionnaire<br/>time, delivery, max HR,<br/>goal, runs/week, long-run day,<br/>strength days, priority] --> B[~/.headroom/config.json<br/>+ daily scheduled task]
     B --> C[Every morning at your time]
     C --> D[Claude opens Garmin Connect<br/>in your signed-in Chrome]
-    D --> E[splits-garmin.js runs in the page:<br/>reads HRV, resting HR, sleep,<br/>Body Battery, activities]
+    D --> E[headroom-garmin.js runs in the page:<br/>reads HRV, resting HR, sleep,<br/>Body Battery, activities]
     E --> F{Watch has its own<br/>readiness score?}
     F -- yes --> G[Use Garmin Training Readiness]
-    F -- no --> H[Calculate the Splits estimate]
+    F -- no --> H[Calculate the Headroom estimate]
     G --> I[Plan: today's session,<br/>adjusted to the score]
     H --> I
     I --> J[Render the email<br/>tools/email.js]
     J --> K[Send to your inbox via Gmail]
-    K --> L[Log to ~/.splits/history.jsonl]
+    K --> L[Log to ~/.headroom/history.jsonl]
     L --> M[Weekly: volume builds ~10%,<br/>every 4th week is lighter]
 ```
 
 ### 1. Setup (once, about two minutes)
 
-Ask Claude to **set up Splits**. It looks at your last 90 days of Garmin data first, so most answers are pre-filled, then asks two short rounds of questions:
+Ask Claude to **set up Headroom**. It looks at your last 90 days of Garmin data first, so most answers are pre-filled, then asks two short rounds of questions:
 
 - **The morning check:** what time, how to reach you (email, push or both), whether to notify every morning or only on Low or Poor days, and your max heart rate (it suggests the highest from your recent activities).
 - **Your training:** goal (5K, 10K, half marathon or general fitness), runs per week, long-run day, which days you do strength training, and whether running, strength or neither comes first.
@@ -61,7 +61,7 @@ It saves your answers, shows you the week's plan, schedules the daily check and 
 
 ### 2. Every morning
 
-The scheduled task opens Garmin Connect in your browser, runs the Splits script in the page and reads only what it needs. The score and the plan are calculated by tested code; Claude runs it and delivers the result exactly as rendered, so the numbers can't drift or be made up. The whole run takes a few minutes and closes its tab when it's done.
+The scheduled task opens Garmin Connect in your browser, runs the Headroom script in the page and reads only what it needs. The score and the plan are calculated by tested code; Claude runs it and delivers the result exactly as rendered, so the numbers can't drift or be made up. The whole run takes a few minutes and closes its tab when it's done.
 
 ### 3. Over the weeks
 
@@ -69,9 +69,9 @@ Each run is logged. When you check in with Claude yourself, it asks whether the 
 
 ## How the score works
 
-**If your watch has its own readiness score, Splits uses it.** On Garmin watches with Training Readiness (many newer Forerunner, Fenix and Epix models), the morning email shows Garmin's score and says so. The Splits estimate is still calculated and logged alongside it, which is a useful check on the formula. Fitbit's Daily Readiness isn't among the Google Health API's data types today, so Fitbit and Pixel Watch users would get the Splits estimate.
+**If your watch has its own readiness score, Headroom uses it.** On Garmin watches with Training Readiness (many newer Forerunner, Fenix and Epix models), the morning email shows Garmin's score and says so. The Headroom estimate is still calculated and logged alongside it, which is a useful check on the formula. Fitbit's Daily Readiness isn't among the Google Health API's data types today, so Fitbit and Pixel Watch users would get the Headroom estimate.
 
-Otherwise, Splits calculates its own. Each part is scored 0-100 against your own 30-day history, where about 70 is a normal day for you:
+Otherwise, Headroom calculates its own. Each part is scored 0-100 against your own 30-day history, where about 70 is a normal day for you:
 
 | Component | Weight | How it's scored |
 |---|---|---|
@@ -92,7 +92,7 @@ Otherwise, Splits calculates its own. Each part is scored 0-100 against your own
 
 ## How the plan protects you
 
-The plan only schedules running and two short bodyweight "runner strength" blocks a week (calf raises, heel drops, split squats, glute bridges, core). Your strength training is yours: Splits only needs to know which days you do it, never what's in it.
+The plan only schedules running and two short bodyweight "runner strength" blocks a week (calf raises, heel drops, split squats, glute bridges, core). Your strength training is yours: Headroom only needs to know which days you do it, never what's in it.
 
 - **It starts from your real volume,** not your best week, and builds about 10% a week with a lighter week every fourth.
 - **Hard runs are at least 48 hours apart,** and avoid the day after strength training when the week allows it. When they share a day, the plan says to run first and lift later.
@@ -106,10 +106,10 @@ You need the Claude desktop app or Claude Code, with Claude in Chrome and a Gmai
 
 ```bash
 claude plugin marketplace add <path-or-git-url-of-this-repo>
-claude plugin install splits@splits
+claude plugin install headroom@headroom
 ```
 
-Then ask Claude to **set up Splits**.
+Then ask Claude to **set up Headroom**.
 
 A few practical notes:
 
@@ -119,13 +119,13 @@ A few practical notes:
 
 ## Privacy
 
-There's no Splits server. Your Garmin data goes from Garmin to your browser to your Claude session, and the email goes only to the address you gave during setup. Splits never sees or stores your password: it uses the Garmin session you're already signed in with. Your history and settings stay in `~/.splits/` on your computer.
+There's no Headroom server. Your Garmin data goes from Garmin to your browser to your Claude session, and the email goes only to the address you gave during setup. Headroom never sees or stores your password: it uses the Garmin session you're already signed in with. Your history and settings stay in `~/.headroom/` on your computer.
 
 ## Under the hood
 
 ```
-skills/splits-setup        questionnaire → config, plan preview, schedule
-skills/splits-readiness    morning check, backtest, weekly plan
+skills/setup        questionnaire → config, plan preview, schedule
+skills/readiness    morning check, backtest, weekly plan
 src/adapters/              Garmin (browser session) → common data format
 src/core/readiness.js      the score
 src/core/plan.js           weekly plan + today's session
@@ -164,7 +164,7 @@ node tools/email.js result.json           # render a morning email
 
 ## Known limits
 
-- **Unofficial endpoints.** The Garmin adapter reads the same internal endpoints the Garmin Connect website uses. They can change without notice, and automated access sits outside Garmin's official API. Splits is read-only and limited to your own account.
+- **Unofficial endpoints.** The Garmin adapter reads the same internal endpoints the Garmin Connect website uses. They can change without notice, and automated access sits outside Garmin's official API. Headroom is read-only and limited to your own account.
 - **Cost per run.** Each check pastes a ~28 KB script into the page, which uses some of your Claude usage every morning. An MCP server or Garmin's official API would remove that.
 - **Untested on watches with Training Readiness.** Using Garmin's own score is written defensively but hasn't yet run against a watch that has it.
 - **The weights aren't validated.** They were checked against one runner's 60-day history, where personal bests fell on high-scoring days and the worst mornings scored lowest. That's encouraging, not proof.
@@ -175,4 +175,4 @@ node tools/email.js result.json           # render a morning email
 - Google Health API adapter for Fitbit and Pixel Watch
 - Tuning the weights from the 👍/👎 log
 
-Splits is an estimate for training decisions, not medical advice. If something hurts, see a physio.
+Headroom is an estimate for training decisions, not medical advice. If something hurts, see a physio.

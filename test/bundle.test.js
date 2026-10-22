@@ -6,14 +6,14 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { wakeLevel } = require('../src/adapters/garmin-browser');
 
-test('the browser bundle builds and exposes Splits', () => {
+test('the browser bundle builds and exposes Headroom', () => {
   execFileSync(process.execPath, [path.join(__dirname, '..', 'tools', 'build.js')]);
-  const code = fs.readFileSync(path.join(__dirname, '..', 'skills', 'splits-readiness', 'scripts', 'splits-garmin.js'), 'utf8');
+  const code = fs.readFileSync(path.join(__dirname, '..', 'skills', 'readiness', 'scripts', 'headroom-garmin.js'), 'utf8');
   const sandbox = {};
   sandbox.globalThis = sandbox;
   vm.runInNewContext(code, sandbox);
   for (const fn of ['morningCheck', 'backtest', 'profile', 'planWeek', 'more', 'computeReadiness']) {
-    assert.equal(typeof sandbox.Splits[fn], 'function', fn);
+    assert.equal(typeof sandbox.Headroom[fn], 'function', fn);
   }
 });
 

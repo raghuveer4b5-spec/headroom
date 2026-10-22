@@ -1,5 +1,5 @@
 {
-  "name": "splits",
+  "name": "headroom",
   "version": "0.1.0",
   "private": true,
   "description": "Training readiness score for watches that don't have one, run by your own AI agent on your own data.",
