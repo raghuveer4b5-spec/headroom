@@ -841,6 +841,8 @@ return days.get(date);
 };
 const warnings = [];
 const safe = (p, label) => p.catch((e) => { warnings.push(`${label}: ${e.message}`); return null; });
+const profile = await safe(gget('/userprofile-service/socialProfile'), 'profile');
+if (!profile && /(timed out|network error)$/.test(warnings[0] || '')) return { days: [], activities: [], warnings };
 for (const [s, e] of ranges(startDate, endDate)) {
 const hrv = await safe(gget(`/hrv-service/hrv/daily/${s}/${e}`), 'hrv');
 for (const x of hrv?.hrvSummaries || []) {
@@ -857,7 +859,6 @@ for (const x of rhr || []) {
 if (typeof x.values?.restingHR === 'number') day(x.calendarDate).restingHr = x.values.restingHR;
 }
 }
-const profile = await safe(gget('/userprofile-service/socialProfile'), 'profile');
 const sleepEnd = {};
 if (profile?.displayName) {
 const name = encodeURIComponent(profile.displayName);

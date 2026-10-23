@@ -73,6 +73,10 @@ async function fetchCommon({ startDate, endDate, sleepFrom }) {
   const warnings = [];
   const safe = (p, label) => p.catch((e) => { warnings.push(`${label}: ${e.message}`); return null; });
 
+  // One cheap request first: if Garmin doesn't answer, stop in ~30 s instead of timing out every call.
+  const profile = await safe(gget('/userprofile-service/socialProfile'), 'profile');
+  if (!profile && /(timed out|network error)$/.test(warnings[0] || '')) return { days: [], activities: [], warnings };
+
   for (const [s, e] of ranges(startDate, endDate)) {
     const hrv = await safe(gget(`/hrv-service/hrv/daily/${s}/${e}`), 'hrv');
     for (const x of hrv?.hrvSummaries || []) {
@@ -90,7 +94,6 @@ async function fetchCommon({ startDate, endDate, sleepFrom }) {
     }
   }
 
-  const profile = await safe(gget('/userprofile-service/socialProfile'), 'profile');
   const sleepEnd = {};
   if (profile?.displayName) {
     const name = encodeURIComponent(profile.displayName);
