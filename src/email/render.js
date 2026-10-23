@@ -105,6 +105,7 @@ function renderEmail(result, config = {}) {
   const color = BAND_COLOR[result.band] || INK;
   const today = plan ? todaySession(plan, date, result.band, maxHr) : null;
   const subject = dailySubject(result, today);
+  const advice = (today && today.advice) || result.suggestion || '';
   const rows = componentRows(result.components || {}, result.inputs || {});
   const limiters = result.limiters || [];
   const fromDevice = result.source && result.source !== 'Headroom estimate';
@@ -112,13 +113,13 @@ function renderEmail(result, config = {}) {
     ? `${esc(result.source)}${result.estimateScore !== null && result.estimateScore !== undefined ? ` · Headroom estimate ${result.estimateScore}` : ''}`
     : 'Headroom estimate from your Garmin data';
   // The inbox preview line says who it's from, since self-sent mail shows up as "me".
-  const preheader = `Headroom morning check. ${limiters.length ? `${fromDevice ? 'Worth knowing' : 'Held back by'}: ${limiters[0]}.` : result.suggestion || ''}`;
+  const preheader = `Headroom morning check. ${limiters.length ? `${fromDevice ? 'Worth knowing' : 'Held back by'}: ${limiters[0]}.` : advice}`;
 
   const hero = card(`<table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
 <td width="84" valign="middle"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td width="72" height="72" align="center" valign="middle" bgcolor="${color}" style="width:72px;height:72px;border-radius:36px;background:${color};color:#FFFFFF;font-size:30px;font-weight:700;text-align:center">${result.score}</td></tr></table></td>
 <td valign="middle" style="padding-left:12px"><p style="margin:0;font-size:22px;font-weight:700;color:${color}">${esc(result.band)}</p>
 <p style="margin:4px 0 0;font-size:12px;color:${MUTED}">${sourceLine}</p></td></tr></table>
-<p style="margin:16px 0 0;font-size:16px;line-height:1.55;color:${INK}">${esc(result.suggestion || '')}</p>`);
+<p style="margin:16px 0 0;font-size:16px;line-height:1.55;color:${INK}">${esc(advice)}</p>`);
 
   let workout = '';
   if (today) {
@@ -170,7 +171,7 @@ function renderEmail(result, config = {}) {
 
   const textLines = [
     `Readiness ${result.score} · ${result.band} (${fromDevice ? result.source : 'Headroom estimate'})`,
-    result.suggestion || '',
+    advice,
     today ? `\nToday: ${today.suggestion}` : '',
     today && today.accessory ? today.accessory : '',
     rows.length ? `\nWhat shaped the score:\n${rows.map(([n, v, d]) => `- ${n}: ${v} (${d})`).join('\n')}` : '',

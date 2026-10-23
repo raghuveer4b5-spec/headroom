@@ -66,3 +66,13 @@ test('without a plan the email still works', () => {
   assert.equal(r.subject, 'Take it easy · Readiness 44');
   assert.doesNotMatch(r.html, /THIS WEEK/);
 });
+
+test('the headline follows the plan, not just the score: no intervals on a strength or easy day', () => {
+  const at = (date, band, score) => renderEmail({ ...RESULT, date, band, score, limiters: [], suggestion: 'Good day for intervals or a time trial.' }, CONFIG);
+  const strength = at('2026-10-23', 'High', 81);
+  assert.equal(strength.subject, 'Go for it: strength day · Readiness 81');
+  assert.doesNotMatch(strength.html, /intervals/i);
+  assert.match(strength.html, /good day to push in the gym/);
+  assert.doesNotMatch(at('2026-10-22', 'High', 81).text, /intervals or a time trial/, 'easy-run day stays easy');
+  assert.match(renderEmail({ ...RESULT, limiters: [], suggestion: 'Good day for intervals or a time trial.', band: 'High', score: 81 }, { maxHr: 196 }).text, /intervals/, 'without a plan the score advice stands');
+});

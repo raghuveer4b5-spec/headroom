@@ -63,7 +63,9 @@ if (unreachable(data)) return JSON.stringify({ date: d, status: 'unreachable', m
 const cfg = resolveConfig(config, data.activities);
 const r = computeReadiness(data, d, cfg);
 const today = cfg.plan ? todaySession(cfg.plan, d, r.status === 'ok' ? r.band : null, cfg.maxHr) : null;
-const message = today ? `${r.message} Today: ${today.suggestion}.` : r.message;
+const suggestion = today?.advice || r.suggestion;
+const headline = r.suggestion && suggestion !== r.suggestion ? r.message.replace(r.suggestion, suggestion) : r.message;
+const message = today ? `${headline} Today: ${today.suggestion}.` : r.message;
 const runs7d = data.activities.filter((a) => {
 const ago = daysBetween(a.start.slice(0, 10), d);
 return a.type.includes('running') && ago >= 1 && ago <= 7;
@@ -76,7 +78,7 @@ band: r.band,
 source: r.source,
 estimateScore: r.estimateScore,
 message,
-suggestion: r.suggestion,
+suggestion,
 limiters: r.limiters,
 runs7d,
 today: today && { week: today.week, weekTargetKm: today.weekTargetKm, recoveryWeek: today.recoveryWeek, changed: today.changed, accessory: today.accessory, notes: today.notes },
@@ -588,6 +590,19 @@ parts.push(type === 'easy' ? `Easy ${lowKm} km` : `Easy ${lowKm} km (was ${RUN_N
 if (day.strength) parts.push(parts.length ? 'strength' : 'Strength');
 return parts.join(' + ') || 'Rest';
 }
+function planAdvice(day, band) {
+if (band !== 'High' && band !== 'Moderate') {
+if (band === 'Low' && !day.run) return day.strength ? 'Recovery is lagging: lift lighter than usual today.' : 'Rest day as planned, which suits today.';
+return null;
+}
+const high = band === 'High';
+const type = day.run?.type;
+if (type === 'intervals' || type === 'tempo') return high ? 'Well recovered: a good day for the planned hard session.' : 'Do the planned session, but keep it controlled.';
+if (type === 'runwalk') return high ? "Well recovered: do today's run/walk as planned." : "A normal day: do today's run/walk as planned.";
+if (type) return high ? 'Well recovered. Keep the run easy anyway: easy days are what make the hard days work.' : 'A normal day: run as planned, at an easy effort.';
+if (day.strength) return high ? 'Well recovered: a good day to push in the gym.' : 'A normal day: train as planned.';
+return high ? "Rest day as planned. You're recovering well; keep it that way." : 'Rest day as planned.';
+}
 function todaySession(prefs, date, band, maxHr) {
 const week = buildWeek(prefs, date, maxHr);
 const day = week.days[weekdayOf(date)];
@@ -627,6 +642,7 @@ if (!parts.length) parts.push('Rest day');
 }
 return {
 day: weekdayOf(date),
+advice: planAdvice(day, band),
 week: week.week,
 weekTargetKm: week.targetKm,
 recoveryWeek: week.recovery,

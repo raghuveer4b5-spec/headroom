@@ -210,6 +210,23 @@ function shortLabel(day, band) {
   return parts.join(' + ') || 'Rest';
 }
 
+// The headline advice for a day with a plan. The score alone would say "good day for intervals"
+// on a strength or easy day, so with a plan the advice follows the planned session instead.
+// Low and Poor keep the score's own advice (null here): the session itself is already adjusted.
+function planAdvice(day, band) {
+  if (band !== 'High' && band !== 'Moderate') {
+    if (band === 'Low' && !day.run) return day.strength ? 'Recovery is lagging: lift lighter than usual today.' : 'Rest day as planned, which suits today.';
+    return null;
+  }
+  const high = band === 'High';
+  const type = day.run?.type;
+  if (type === 'intervals' || type === 'tempo') return high ? 'Well recovered: a good day for the planned hard session.' : 'Do the planned session, but keep it controlled.';
+  if (type === 'runwalk') return high ? "Well recovered: do today's run/walk as planned." : "A normal day: do today's run/walk as planned.";
+  if (type) return high ? 'Well recovered. Keep the run easy anyway: easy days are what make the hard days work.' : 'A normal day: run as planned, at an easy effort.';
+  if (day.strength) return high ? 'Well recovered: a good day to push in the gym.' : 'A normal day: train as planned.';
+  return high ? "Rest day as planned. You're recovering well; keep it that way." : 'Rest day as planned.';
+}
+
 function todaySession(prefs, date, band, maxHr) {
   const week = buildWeek(prefs, date, maxHr);
   const day = week.days[weekdayOf(date)];
@@ -253,6 +270,7 @@ function todaySession(prefs, date, band, maxHr) {
 
   return {
     day: weekdayOf(date),
+    advice: planAdvice(day, band),
     week: week.week,
     weekTargetKm: week.targetKm,
     recoveryWeek: week.recovery,

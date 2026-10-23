@@ -77,7 +77,10 @@ async function morningCheck({ date, config } = {}) {
   const cfg = resolveConfig(config, data.activities);
   const r = computeReadiness(data, d, cfg);
   const today = cfg.plan ? todaySession(cfg.plan, d, r.status === 'ok' ? r.band : null, cfg.maxHr) : null;
-  const message = today ? `${r.message} Today: ${today.suggestion}.` : r.message;
+  // With a plan, the headline advice follows today's session rather than the score alone.
+  const suggestion = today?.advice || r.suggestion;
+  const headline = r.suggestion && suggestion !== r.suggestion ? r.message.replace(r.suggestion, suggestion) : r.message;
+  const message = today ? `${headline} Today: ${today.suggestion}.` : r.message;
   // Runs in the last 7 days, logged so the Sunday job can judge beginner progress without Garmin.
   const runs7d = data.activities.filter((a) => {
     const ago = daysBetween(a.start.slice(0, 10), d);
@@ -91,7 +94,7 @@ async function morningCheck({ date, config } = {}) {
     source: r.source,
     estimateScore: r.estimateScore,
     message,
-    suggestion: r.suggestion,
+    suggestion,
     limiters: r.limiters,
     runs7d,
     today: today && { week: today.week, weekTargetKm: today.weekTargetKm, recoveryWeek: today.recoveryWeek, changed: today.changed, accessory: today.accessory, notes: today.notes },
