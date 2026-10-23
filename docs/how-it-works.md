@@ -73,6 +73,8 @@ Otherwise, each part is scored 0-100 against your own 30-day history, where abou
 | Resting HR | 15% | This morning vs your 30-day baseline |
 | Body Battery | 5% | Level at wake-up |
 
+Zones and hard-session detection use your max heart rate: a tested value if you have one, otherwise the higher of the highest you've hit in 90 days and `208 - 0.7 x age` ([Tanaka et al., 2001](https://pubmed.ncbi.nlm.nih.gov/11153730/), typically within about 10 bpm).
+
 Resting HR 7+ bpm above normal, or an HRV status of Low, caps the score at 30. With less than 14 days of history it says "calibrating" instead of guessing.
 
 | Score | Band | Today |

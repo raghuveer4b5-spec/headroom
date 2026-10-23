@@ -1,7 +1,7 @@
 // Browser entry point. The agent's page-script tool returns at most ~1000 characters,
 // so results are computed in the page and returned compactly, with paging for long output.
 const { computeReadiness, DEFAULT_CONFIG } = require('./core/readiness');
-const { isHard, observedMaxHr } = require('./core/load');
+const { isHard, observedMaxHr, ageMaxHr } = require('./core/load');
 const { addDays, daysBetween, round } = require('./core/stats');
 const { todaySession, weekdayOf, buildWeek, WEEKDAYS } = require('./core/plan');
 const { DISTANCE_KM, riegel, formatTime } = require('./core/pace');
@@ -33,10 +33,10 @@ function authExpired(data) {
   return data.days.length === 0 && data.warnings.some((w) => /HTTP 40[13]$/.test(w));
 }
 
-// Max HR from setup wins; otherwise the highest HR seen in the fetched activities.
+// Max HR from setup wins; then the highest HR seen in the fetched activities, then the age estimate.
 function resolveConfig(config, activities) {
   const cfg = { ...(config || {}) };
-  if (!cfg.maxHr) cfg.maxHr = observedMaxHr(activities) || DEFAULT_CONFIG.maxHr;
+  if (!cfg.maxHr) cfg.maxHr = observedMaxHr(activities) || ageMaxHr(cfg.age) || DEFAULT_CONFIG.maxHr;
   return cfg;
 }
 
@@ -143,13 +143,15 @@ function planWeek({ config, date } = {}) {
   const w = buildWeek(cfg.plan, d, cfg.maxHr);
   const label = (x) => {
     const parts = [];
-    if (x.run) parts.push(`${x.run.type} ${x.run.km} km`);
+    if (x.run) parts.push(x.run.type === 'runwalk' ? `run/walk ${x.run.text}` : `${x.run.type} ${x.run.km} km`);
     if (x.strength) parts.push('strength');
     if (x.accessory) parts.push('runner block');
     return parts.join(' + ') || 'rest';
   };
   const lines = WEEKDAYS.map((wd) => `${wd}: ${label(w.days[wd])}`);
-  const head = `Week ${w.week}${w.recovery ? ' (lighter week)' : ''}, ${w.targetKm} km planned`;
+  const head = w.beginner
+    ? `Week ${w.week}, stage ${w.beginner.stage} of ${w.beginner.of}`
+    : `Week ${w.week}${w.recovery ? ' (lighter week)' : ''}, ${w.targetKm} km planned`;
   return paged([head, ...lines, ...w.notes.map((n) => `note: ${n}`)].join('\n'));
 }
 

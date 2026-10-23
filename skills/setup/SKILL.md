@@ -21,7 +21,7 @@ Use AskUserQuestion when available (up to 4 questions per call). Pre-fill from t
 1. **Time.** 06:30, 07:00, 07:30, 08:00. It needs the computer awake with Chrome open, and the watch synced through the phone.
 2. **Notifications.** Every morning (recommended); only on Low or Poor days; no notifications, just the log.
 3. **Delivery.** Email (recommended: the most reliable, since scheduled runs can't always push to a phone), push notification, or both. For email, confirm the address to send to; only ever use an address the user gives or confirms here.
-4. **Max heart rate.** Offer "{observedMaxHr} bpm, the highest in your last 90 days" first; a tested or Garmin-set value can go in Other.
+4. **Max heart rate.** Offer "{observedMaxHr} bpm, the highest in your last 90 days" (when there is one), "I don't know: estimate it from my age", and Other for a tested or Garmin-set value. If they don't know, ask their age (Other, a number) and use `208 - 0.7 x age`, rounded (Tanaka et al., 2001: the least biased of the common formulas, typically within about 10 bpm). Recommend the higher of the observed and age values: an observed max is a floor, since easy running rarely reaches it. If the observed value is more than 15 bpm above the age estimate, mention it may be a wrist-sensor spike and ask which to use.
 
 **First, which plan.** Ask: **"How long can you run without stopping right now?"** Options: not yet, or under a minute; about 2-4 minutes; about 5-10 minutes; 20 minutes or more, or a 5K. The last option goes to the regular plan (Round 2 below). Anything shorter goes to **beginner mode**:
 
@@ -70,6 +70,7 @@ Write `~/.headroom/config.json` (create the folder if needed):
 }
 ```
 
+- `maxHr` is the value the user chose. When it came from their age, also save `"age"` and `"maxHrSource": "age"`, so a later setup can offer the observed value once real hard efforts show up.
 - `notify`: `daily`, `low-and-poor` or `none`. `email` is omitted and `push` is `false` when the user didn't choose that channel.
 - Days are lowercase three-letter weekdays.
 - `startDate` is the Monday of the current week; week numbers and the 10%-a-week build count from it. Keep the existing `startDate` when re-running setup unless the goal changed.

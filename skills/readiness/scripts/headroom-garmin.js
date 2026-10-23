@@ -3,7 +3,7 @@
 const defs = {
 'runner.js': function (module, exports, __req) {
 const { computeReadiness, DEFAULT_CONFIG } = __req('core/readiness.js');
-const { isHard, observedMaxHr } = __req('core/load.js');
+const { isHard, observedMaxHr, ageMaxHr } = __req('core/load.js');
 const { addDays, daysBetween, round } = __req('core/stats.js');
 const { todaySession, weekdayOf, buildWeek, WEEKDAYS } = __req('core/plan.js');
 const { DISTANCE_KM, riegel, formatTime } = __req('core/pace.js');
@@ -30,7 +30,7 @@ return data.days.length === 0 && data.warnings.some((w) => /HTTP 40[13]$/.test(w
 }
 function resolveConfig(config, activities) {
 const cfg = { ...(config || {}) };
-if (!cfg.maxHr) cfg.maxHr = observedMaxHr(activities) || DEFAULT_CONFIG.maxHr;
+if (!cfg.maxHr) cfg.maxHr = observedMaxHr(activities) || ageMaxHr(cfg.age) || DEFAULT_CONFIG.maxHr;
 return cfg;
 }
 async function morningCheck({ date, config } = {}) {
@@ -127,13 +127,15 @@ const d = date || localToday();
 const w = buildWeek(cfg.plan, d, cfg.maxHr);
 const label = (x) => {
 const parts = [];
-if (x.run) parts.push(`${x.run.type} ${x.run.km} km`);
+if (x.run) parts.push(x.run.type === 'runwalk' ? `run/walk ${x.run.text}` : `${x.run.type} ${x.run.km} km`);
 if (x.strength) parts.push('strength');
 if (x.accessory) parts.push('runner block');
 return parts.join(' + ') || 'rest';
 };
 const lines = WEEKDAYS.map((wd) => `${wd}: ${label(w.days[wd])}`);
-const head = `Week ${w.week}${w.recovery ? ' (lighter week)' : ''}, ${w.targetKm} km planned`;
+const head = w.beginner
+? `Week ${w.week}, stage ${w.beginner.stage} of ${w.beginner.of}`
+: `Week ${w.week}${w.recovery ? ' (lighter week)' : ''}, ${w.targetKm} km planned`;
 return paged([head, ...lines, ...w.notes.map((n) => `note: ${n}`)].join('\n'));
 }
 module.exports = { morningCheck, backtest, profile, planWeek, more, computeReadiness, fetchCommon, authExpired, resolveConfig };
@@ -374,7 +376,10 @@ function observedMaxHr(activities) {
 const values = activities.map((a) => a.maxHr).filter((x) => typeof x === 'number' && x > 120 && x < 230);
 return values.length ? Math.max(...values) : null;
 }
-module.exports = { activityLoad, isHard, loadSummary, ratioScore, observedMaxHr };
+function ageMaxHr(age) {
+return typeof age === 'number' && age >= 10 && age <= 100 ? Math.round(208 - 0.7 * age) : null;
+}
+module.exports = { activityLoad, isHard, loadSummary, ratioScore, observedMaxHr, ageMaxHr };
 },
 'core/plan.js': function (module, exports, __req) {
 const { daysBetween, clamp } = __req('core/stats.js');

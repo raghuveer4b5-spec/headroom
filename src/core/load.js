@@ -51,4 +51,9 @@ function observedMaxHr(activities) {
   return values.length ? Math.max(...values) : null;
 }
 
-module.exports = { activityLoad, isHard, loadSummary, ratioScore, observedMaxHr };
+// Tanaka et al. 2001: 208 - 0.7 x age, the least biased of the common age formulas (about +-10 bpm).
+function ageMaxHr(age) {
+  return typeof age === 'number' && age >= 10 && age <= 100 ? Math.round(208 - 0.7 * age) : null;
+}
+
+module.exports = { activityLoad, isHard, loadSummary, ratioScore, observedMaxHr, ageMaxHr };
