@@ -2,12 +2,27 @@
 // Garmin Connect web app calls, with the user's own session. Read-only.
 const { addDays } = require('../core/stats');
 
-async function gget(path) {
+// A request that never answers (network still down after the Mac wakes, say) would hang the
+// whole check, so each one gets a timeout and one retry. HTTP errors are not retried.
+const TIMEOUT_MS = 15000;
+
+async function gget(path, retries = 1) {
   const token = document.querySelector('meta[name="csrf-token"]')?.content;
-  const res = await fetch(`/gc-api${path}`, {
-    credentials: 'include',
-    headers: { 'connect-csrf-token': token, accept: 'application/json' },
-  });
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+  let res;
+  try {
+    res = await fetch(`/gc-api${path}`, {
+      credentials: 'include',
+      headers: { 'connect-csrf-token': token, accept: 'application/json' },
+      signal: ctrl.signal,
+    });
+  } catch (e) {
+    if (retries > 0) return gget(path, retries - 1);
+    throw new Error(e.name === 'AbortError' ? 'timed out' : 'network error');
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const text = await res.text();
   return text ? JSON.parse(text) : null;

@@ -18,13 +18,15 @@ Computes a readiness score from overnight HRV, resting HR, sleep, training load 
 1. Call `tabs_context_mcp` (with `createIfEmpty: true`). If it returns an empty New Tab, use that one; otherwise open a fresh tab with `tabs_create_mcp`. Don't keep using an old Garmin tab: Garmin's session token goes stale in long-lived tabs.
 2. `navigate` to `https://connect.garmin.com/app/home` and wait about 6 seconds.
 3. If the page is a Garmin sign-in page, stop. Ask the user to sign in themselves. Never type credentials.
-4. Read `scripts/headroom-garmin.js` from this skill's directory. Run one `javascript_tool` call whose text is the file's full contents followed by a new line and `await Headroom.morningCheck({ config: <the config.json object> })`. Without a config, call `await Headroom.morningCheck()`. If `typeof Headroom !== 'undefined'` in this tab already, make the call alone.
-5. The result is a JSON string. If it ends with `[page 1/N; ...]`, call `Headroom.more(2)`, `Headroom.more(3)`, and so on, then join the pages.
+4. Read `scripts/headroom-garmin.js` from this skill's directory. Run one `javascript_tool` call whose text is the file's full contents followed by a new line and `Headroom.start('morningCheck', { config: <the config.json object> })`. Without a config, pass `{}`. If `typeof Headroom !== 'undefined'` in this tab already, make the call alone. It returns at once; the check runs in the page.
+5. Call `Headroom.result()` in its own `javascript_tool` call. While it says `running Ns`, wait about 5 seconds and call it again. Every Garmin request times out after 15 seconds with one retry, so it finishes within about two minutes; if it still says running after 3 minutes, log `failed` with reason "page script still running after 3 minutes". The result is a JSON string. If it ends with `[page 1/N; ...]`, call `Headroom.more(2)`, `Headroom.more(3)`, and so on, then join the pages.
 6. Act on `status`:
    - `ok`: report it (below).
    - `no-sync`: the watch hasn't synced last night's data. Tell the user to open Garmin Connect on their phone, then offer to retry.
-   - `auth-expired`: reload the tab once and retry step 4. If it fails again, ask the user to reload and sign in.
+   - `auth-expired`: reload the tab once and retry steps 4-5. If it fails again, ask the user to reload and sign in.
+   - `unreachable`: Garmin didn't answer, usually because the network is still waking up. Wait 60 seconds, reload the tab, and retry steps 4-5 once. If it fails again, report `unreachable`.
    - `calibrating`: explain that the score needs about 14 days of HRV and resting HR history.
+   - If a `javascript_tool` call itself errors or never returns, retry it once; then log `failed` with the reason.
 7. Close the tab you opened with `tabs_close_mcp`.
 
 ### Reporting
@@ -46,13 +48,13 @@ Append one JSON line to `~/.headroom/history.jsonl` on every run, including fail
 {"date":"2026-10-23","status":"failed","reason":"Chrome site approval for connect.garmin.com timed out"}
 ```
 
-Use the script's `status` (`no-sync`, `auth-expired`, `calibrating`) when it returns one, and `failed` with a short `reason` when the run never got that far.
+Use the script's `status` (`no-sync`, `auth-expired`, `unreachable`, `calibrating`) when it returns one, and `failed` with a short `reason` when the run never got that far. For an email about a `failed` run, render it with `{"date":"...","status":"failed","message":"<reason in one plain sentence>"}` so the subject says what actually went wrong; never send a `no-sync` subject for a run that didn't read the data.
 
 When the user is present (not a scheduled run), ask once: "Did that match how you feel? 👍 / 👎". Append their answer as `{"date":"...","feedback":"up"}` or `"down"`. After 2-3 weeks, this log is what the weights get tuned against.
 
 ## Backtest
 
-Same steps 0-4, but call `await Headroom.backtest({ days: 60, config: { maxHr: <maxHr> } })` (any number of days up to about 90). The result is a legend line, then `MMDD:score` entries with a band letter (H/M/L/P) and an activity flag for that day (h hard, r run, x other). Page through with `Headroom.more(n)` if it is split.
+Same steps 0-5, but start it with `Headroom.start('backtest', { days: 60, config: { maxHr: <maxHr> } })` (any number of days up to about 90) and collect it with `Headroom.result()`. The result is a legend line, then `MMDD:score` entries with a band letter (H/M/L/P) and an activity flag for that day (h hard, r run, x other). Page through with `Headroom.more(n)` if it is split.
 
 Present it as a short summary: how many High/Moderate/Low/Poor days, the lowest and highest days, and whether hard sessions and personal bests fell on high-scoring days. Don't claim the score is validated from one backtest; say what the pattern suggests.
 

@@ -9,7 +9,7 @@ Two short rounds of questions, then a saved config, a weekly plan, a scheduled m
 
 ## 1. Check the data
 
-Follow steps 1-3 of the morning check in the `headroom:readiness` skill (fresh Chrome tab on `https://connect.garmin.com/app/home`, user signed in). Then run one `javascript_tool` call with the full contents of `../readiness/scripts/headroom-garmin.js` (relative to this skill's directory), a new line, and `await Headroom.profile()`. Keep the tab open for the test run in step 6.
+Follow steps 1-3 of the morning check in the `headroom:readiness` skill (fresh Chrome tab on `https://connect.garmin.com/app/home`, user signed in). Then run one `javascript_tool` call with the full contents of `../readiness/scripts/headroom-garmin.js` (relative to this skill's directory), a new line, and `Headroom.start('profile')`, then collect it with `Headroom.result()` as in step 5 of the morning check. Keep the tab open for the test run in step 6.
 
 It returns `estimatedTimes` (current 5K, 10K and half-marathon times estimated from the best recent run), `weeklyRunKm4w` (average running km per week, last 4 weeks), `longestRunKm4w`, `usualLiftDays` (weekdays with 2+ strength sessions in the last 4 weeks), `observedMaxHr`, `daysWithHrv` and `readyToScore`. If `readyToScore` is false, tell the user the score needs about 14 nights of HRV data from wearing the watch overnight; setup can continue now.
 

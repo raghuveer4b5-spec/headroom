@@ -72,6 +72,8 @@ const VERDICT = { High: 'Go for it', Moderate: 'Steady day', Low: 'Take it easy'
 const FAILED_SUBJECT = {
   'no-sync': 'No check today: sync your watch',
   'auth-expired': 'No check today: sign in to Garmin Connect',
+  unreachable: "No check today: Garmin Connect didn't respond",
+  failed: "No check today: Headroom couldn't read Garmin Connect",
   calibrating: 'Headroom is calibrating: a few more nights of data',
 };
 

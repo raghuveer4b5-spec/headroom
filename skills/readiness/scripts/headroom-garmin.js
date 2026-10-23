@@ -28,6 +28,28 @@ const AUTH_MESSAGE = 'Garmin session expired. Reload connect.garmin.com (sign in
 function authExpired(data) {
 return data.days.length === 0 && data.warnings.some((w) => /HTTP 40[13]$/.test(w));
 }
+const UNREACHABLE_MESSAGE = "Garmin Connect didn't respond. The network may still have been waking up.";
+function unreachable(data) {
+return data.days.length === 0 && data.warnings.some((w) => /(timed out|network error)$/.test(w));
+}
+let job = null;
+function start(name, args) {
+const fns = { morningCheck, backtest, profile };
+if (!fns[name]) return `unknown: ${name}`;
+job = { name, startedAt: Date.now(), done: false, value: null };
+const current = job;
+Promise.resolve()
+.then(() => fns[name](args))
+.then((v) => { current.value = v; })
+.catch((e) => { current.value = JSON.stringify({ status: 'failed', reason: `script error: ${e.message}` }); })
+.finally(() => { current.done = true; });
+return `started ${name}; call Headroom.result()`;
+}
+function result() {
+if (!job) return 'nothing started';
+if (!job.done) return `running ${Math.round((Date.now() - job.startedAt) / 1000)}s; call Headroom.result() again`;
+return job.value;
+}
 function resolveConfig(config, activities) {
 const cfg = { ...(config || {}) };
 if (!cfg.maxHr) cfg.maxHr = observedMaxHr(activities) || ageMaxHr(cfg.age) || DEFAULT_CONFIG.maxHr;
@@ -37,6 +59,7 @@ async function morningCheck({ date, config } = {}) {
 const d = date || localToday();
 const data = await fetchCommon({ startDate: addDays(d, -31), endDate: d, sleepFrom: addDays(d, -2) });
 if (authExpired(data)) return JSON.stringify({ date: d, status: 'auth-expired', message: AUTH_MESSAGE });
+if (unreachable(data)) return JSON.stringify({ date: d, status: 'unreachable', message: UNREACHABLE_MESSAGE });
 const cfg = resolveConfig(config, data.activities);
 const r = computeReadiness(data, d, cfg);
 const today = cfg.plan ? todaySession(cfg.plan, d, r.status === 'ok' ? r.band : null, cfg.maxHr) : null;
@@ -88,6 +111,7 @@ async function profile({ days = 90 } = {}) {
 const end = localToday();
 const data = await fetchCommon({ startDate: addDays(end, -(days - 1)), endDate: end, sleepFrom: end });
 if (authExpired(data)) return JSON.stringify({ status: 'auth-expired', message: AUTH_MESSAGE });
+if (unreachable(data)) return JSON.stringify({ status: 'unreachable', message: UNREACHABLE_MESSAGE });
 const withHrv = data.days.filter((d) => typeof d.hrvLastNight === 'number').length;
 const recent = data.activities.filter((a) => daysBetween(a.start.slice(0, 10), end) < 28);
 const recentRuns = recent.filter((a) => a.type.includes('running'));
@@ -138,7 +162,7 @@ const head = w.beginner
 : `Week ${w.week}${w.recovery ? ' (lighter week)' : ''}, ${w.targetKm} km planned`;
 return paged([head, ...lines, ...w.notes.map((n) => `note: ${n}`)].join('\n'));
 }
-module.exports = { morningCheck, backtest, profile, planWeek, more, computeReadiness, fetchCommon, authExpired, resolveConfig };
+module.exports = { morningCheck, backtest, profile, planWeek, more, start, result, unreachable, computeReadiness, fetchCommon, authExpired, resolveConfig };
 },
 'core/readiness.js': function (module, exports, __req) {
 const { isNum, mean, sd, clamp, round, addDays, daysBetween } = __req('core/stats.js');
@@ -755,12 +779,24 @@ module.exports = { STAGES, LAST, START_STAGE, stageOf, startStage, describe, dec
 },
 'adapters/garmin-browser.js': function (module, exports, __req) {
 const { addDays } = __req('core/stats.js');
-async function gget(path) {
+const TIMEOUT_MS = 15000;
+async function gget(path, retries = 1) {
 const token = document.querySelector('meta[name="csrf-token"]')?.content;
-const res = await fetch(`/gc-api${path}`, {
+const ctrl = new AbortController();
+const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+let res;
+try {
+res = await fetch(`/gc-api${path}`, {
 credentials: 'include',
 headers: { 'connect-csrf-token': token, accept: 'application/json' },
+signal: ctrl.signal,
 });
+} catch (e) {
+if (retries > 0) return gget(path, retries - 1);
+throw new Error(e.name === 'AbortError' ? 'timed out' : 'network error');
+} finally {
+clearTimeout(timer);
+}
 if (!res.ok) throw new Error(`HTTP ${res.status}`);
 const text = await res.text();
 return text ? JSON.parse(text) : null;

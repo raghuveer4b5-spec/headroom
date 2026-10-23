@@ -33,6 +33,35 @@ function authExpired(data) {
   return data.days.length === 0 && data.warnings.some((w) => /HTTP 40[13]$/.test(w));
 }
 
+const UNREACHABLE_MESSAGE = "Garmin Connect didn't respond. The network may still have been waking up.";
+
+function unreachable(data) {
+  return data.days.length === 0 && data.warnings.some((w) => /(timed out|network error)$/.test(w));
+}
+
+// Start a long call and return at once; result() reports progress, then the answer. This keeps
+// every javascript_tool call short, so a slow Garmin response can't hang the tool call itself.
+let job = null;
+
+function start(name, args) {
+  const fns = { morningCheck, backtest, profile };
+  if (!fns[name]) return `unknown: ${name}`;
+  job = { name, startedAt: Date.now(), done: false, value: null };
+  const current = job;
+  Promise.resolve()
+    .then(() => fns[name](args))
+    .then((v) => { current.value = v; })
+    .catch((e) => { current.value = JSON.stringify({ status: 'failed', reason: `script error: ${e.message}` }); })
+    .finally(() => { current.done = true; });
+  return `started ${name}; call Headroom.result()`;
+}
+
+function result() {
+  if (!job) return 'nothing started';
+  if (!job.done) return `running ${Math.round((Date.now() - job.startedAt) / 1000)}s; call Headroom.result() again`;
+  return job.value;
+}
+
 // Max HR from setup wins; then the highest HR seen in the fetched activities, then the age estimate.
 function resolveConfig(config, activities) {
   const cfg = { ...(config || {}) };
@@ -44,6 +73,7 @@ async function morningCheck({ date, config } = {}) {
   const d = date || localToday();
   const data = await fetchCommon({ startDate: addDays(d, -31), endDate: d, sleepFrom: addDays(d, -2) });
   if (authExpired(data)) return JSON.stringify({ date: d, status: 'auth-expired', message: AUTH_MESSAGE });
+  if (unreachable(data)) return JSON.stringify({ date: d, status: 'unreachable', message: UNREACHABLE_MESSAGE });
   const cfg = resolveConfig(config, data.activities);
   const r = computeReadiness(data, d, cfg);
   const today = cfg.plan ? todaySession(cfg.plan, d, r.status === 'ok' ? r.band : null, cfg.maxHr) : null;
@@ -100,6 +130,7 @@ async function profile({ days = 90 } = {}) {
   const end = localToday();
   const data = await fetchCommon({ startDate: addDays(end, -(days - 1)), endDate: end, sleepFrom: end });
   if (authExpired(data)) return JSON.stringify({ status: 'auth-expired', message: AUTH_MESSAGE });
+  if (unreachable(data)) return JSON.stringify({ status: 'unreachable', message: UNREACHABLE_MESSAGE });
   const withHrv = data.days.filter((d) => typeof d.hrvLastNight === 'number').length;
   const recent = data.activities.filter((a) => daysBetween(a.start.slice(0, 10), end) < 28);
   const recentRuns = recent.filter((a) => a.type.includes('running'));
@@ -155,4 +186,4 @@ function planWeek({ config, date } = {}) {
   return paged([head, ...lines, ...w.notes.map((n) => `note: ${n}`)].join('\n'));
 }
 
-module.exports = { morningCheck, backtest, profile, planWeek, more, computeReadiness, fetchCommon, authExpired, resolveConfig };
+module.exports = { morningCheck, backtest, profile, planWeek, more, start, result, unreachable, computeReadiness, fetchCommon, authExpired, resolveConfig };
