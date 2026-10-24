@@ -4,7 +4,7 @@ const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const { wakeLevel } = require('../src/adapters/garmin-browser');
+const { wakeLevel, toActivity } = require('../src/adapters/garmin-browser');
 
 test('the browser bundle builds and exposes Headroom', () => {
   execFileSync(process.execPath, [path.join(__dirname, '..', 'tools', 'build.js')]);
@@ -29,6 +29,16 @@ test('max HR comes from setup, else the highest HR seen in activities', () => {
   assert.equal(resolveConfig({ maxHr: 196 }, acts).maxHr, 196);
   assert.equal(resolveConfig({}, acts).maxHr, 191);
   assert.equal(resolveConfig(undefined, []).maxHr, 190);
+});
+
+test('an activity whose time was edited in Garmin drops the stale moving time', () => {
+  const base = { startTimeLocal: '2026-10-17 13:30:00', activityType: { typeKey: 'running' }, distance: 10100 };
+  // Watch died at 7 km (43.8 min), then distance and time were edited to 10.1 km in 60 min.
+  const edited = toActivity({ ...base, duration: 3600, movingDuration: 2628, elapsedDuration: 2664 });
+  assert.equal(edited.movingS, null);
+  assert.equal(edited.durationS, 3600);
+  const normal = toActivity({ ...base, duration: 5250, movingDuration: 5232, elapsedDuration: 5262 });
+  assert.equal(normal.movingS, 5232);
 });
 
 test('Body Battery wake level is the first reading after sleep ends', () => {

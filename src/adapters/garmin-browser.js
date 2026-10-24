@@ -61,6 +61,26 @@ function wakeLevel(values, sleepEndGmt) {
   return Math.max(...points.map((p) => p[1]));
 }
 
+// One Garmin activity in the shape the scoring code uses.
+function toActivity(a) {
+  const zones = [1, 2, 3, 4, 5].map((i) => a[`hrTimeInZone_${i}`]);
+  // Editing an activity's time in Garmin updates duration but leaves moving time as recorded,
+  // so a duration longer than the elapsed time means moving time is stale.
+  const edited = a.elapsedDuration && a.duration > a.elapsedDuration + 60;
+  return {
+    start: String(a.startTimeLocal).replace(' ', 'T'),
+    type: a.activityType?.typeKey || 'unknown',
+    durationS: Math.round(a.duration || 0),
+    movingS: a.movingDuration && !edited ? Math.round(a.movingDuration) : null,
+    distanceM: Math.round(a.distance || 0),
+    avgHr: a.averageHR ?? null,
+    maxHr: a.maxHR ?? null,
+    aerobicTe: a.aerobicTrainingEffect ?? null,
+    label: a.trainingEffectLabel ?? null,
+    zoneSeconds: zones.some((z) => typeof z === 'number') ? zones.map((z) => Math.round(z || 0)) : null,
+  };
+}
+
 async function fetchCommon({ startDate, endDate, sleepFrom }) {
   if (!location.hostname.endsWith('connect.garmin.com')) {
     throw new Error('Open connect.garmin.com in this tab first.');
@@ -137,21 +157,7 @@ async function fetchCommon({ startDate, endDate, sleepFrom }) {
       gget(`/activitylist-service/activities/search/activities?startDate=${startDate}&endDate=${endDate}&limit=100&start=${offset}`),
       'activities',
     );
-    for (const a of page || []) {
-      const zones = [1, 2, 3, 4, 5].map((i) => a[`hrTimeInZone_${i}`]);
-      activities.push({
-        start: String(a.startTimeLocal).replace(' ', 'T'),
-        type: a.activityType?.typeKey || 'unknown',
-        durationS: Math.round(a.duration || 0),
-        movingS: a.movingDuration ? Math.round(a.movingDuration) : null,
-        distanceM: Math.round(a.distance || 0),
-        avgHr: a.averageHR ?? null,
-        maxHr: a.maxHR ?? null,
-        aerobicTe: a.aerobicTrainingEffect ?? null,
-        label: a.trainingEffectLabel ?? null,
-        zoneSeconds: zones.some((z) => typeof z === 'number') ? zones.map((z) => Math.round(z || 0)) : null,
-      });
-    }
+    for (const a of page || []) activities.push(toActivity(a));
     if (!page || page.length < 100) break;
   }
 
@@ -163,4 +169,4 @@ async function fetchCommon({ startDate, endDate, sleepFrom }) {
   };
 }
 
-module.exports = { fetchCommon, wakeLevel };
+module.exports = { fetchCommon, wakeLevel, toActivity };
