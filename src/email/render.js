@@ -40,10 +40,11 @@ function bar(value) {
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-radius:4px;overflow:hidden"><tr>${cell(pct, barColor(value))}${pct < 100 ? cell(100 - pct, '#D9DDE3') : ''}</tr></table>`;
 }
 
-function weekStrip(plan, date, band, maxHr) {
+function weekStrip(plan, date, band, maxHr, swap) {
   const week = buildWeek(plan, date, maxHr);
   const todayWd = weekdayOf(date);
-  const monday = addDays(date, -WEEKDAYS.indexOf(todayWd));
+  const todayIndex = WEEKDAYS.indexOf(todayWd);
+  const monday = addDays(date, -todayIndex);
   return WEEKDAYS.map((wd, i) => {
     const day = week.days[wd];
     const isToday = wd === todayWd;
@@ -63,7 +64,15 @@ function weekStrip(plan, date, band, maxHr) {
       run = 'Rest';
       detail = '';
     }
-    return { wd, date: addDays(monday, i), isToday, run, detail, gym: Boolean(day.run && day.strength) };
+    // When today's long or hard run can move into tomorrow's rest day, both cells show the choice.
+    let note = day.run && day.strength ? '+ gym' : '';
+    if (swap && isToday) note = 'or swap';
+    if (swap && i === todayIndex + 1) {
+      const planned = week.days[todayWd].run;
+      detail = `or ${short[planned.type]}`;
+      note = `${planned.km} km`;
+    }
+    return { wd, date: addDays(monday, i), isToday, run, detail, note };
   });
 }
 
@@ -146,7 +155,7 @@ function renderEmail(result, config = {}) {
 
   let week = '';
   if (plan) {
-    const strip = weekStrip(plan, date, result.band, maxHr);
+    const strip = weekStrip(plan, date, result.band, maxHr, today && today.swap);
     const cells = strip
       .map((d) => {
         const fg = d.isToday ? '#FFFFFF' : INK;
@@ -155,7 +164,7 @@ function renderEmail(result, config = {}) {
         return `<td width="14%" valign="top" align="center"${bg} style="padding:8px 2px;text-align:center;border-radius:8px;${d.isToday ? `background:${color};` : ''}color:${fg}">
 <p style="margin:0;font-size:11px;font-weight:600;color:${sub}">${d.wd.charAt(0).toUpperCase() + d.wd.slice(1)}</p>
 <p style="margin:5px 0 0;font-size:12px;font-weight:600;color:${fg}">${esc(d.run)}</p>
-<p style="margin:1px 0 0;font-size:11px;color:${sub}">${d.detail ? esc(d.detail) : '&nbsp;'}</p>${d.gym ? `<p style="margin:1px 0 0;font-size:10px;color:${sub}">+ gym</p>` : ''}</td>`;
+<p style="margin:1px 0 0;font-size:11px;color:${sub}">${d.detail ? esc(d.detail) : '&nbsp;'}</p>${d.note ? `<p style="margin:1px 0 0;font-size:10px;color:${sub}">${esc(d.note)}</p>` : ''}</td>`;
       })
       .join('');
     const w = today;

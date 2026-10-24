@@ -76,3 +76,11 @@ test('the headline follows the plan, not just the score: no intervals on a stren
   assert.doesNotMatch(at('2026-10-22', 'High', 81).text, /intervals or a time trial/, 'easy-run day stays easy');
   assert.match(renderEmail({ ...RESULT, limiters: [], suggestion: 'Good day for intervals or a time trial.', band: 'High', score: 81 }, { maxHr: 196 }).text, /intervals/, 'without a plan the score advice stands');
 });
+
+test('the week strip shows the rest-day swap the workout offers', () => {
+  const low = renderEmail({ ...RESULT, date: '2026-10-24', band: 'Low', score: 49 }, CONFIG);
+  assert.match(low.text, /or move the long run to tomorrow/);
+  assert.match(low.html, />or swap</);
+  assert.match(low.html, />or Long</);
+  assert.doesNotMatch(renderEmail({ ...RESULT, date: '2026-10-24', band: 'High', score: 80 }, CONFIG).html, /or swap/);
+});
