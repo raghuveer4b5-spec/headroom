@@ -62,7 +62,7 @@ if (authExpired(data)) return JSON.stringify({ date: d, status: 'auth-expired', 
 if (unreachable(data)) return JSON.stringify({ date: d, status: 'unreachable', message: UNREACHABLE_MESSAGE });
 const cfg = resolveConfig(config, data.activities);
 const r = computeReadiness(data, d, cfg);
-const today = cfg.plan ? todaySession(cfg.plan, d, r.status === 'ok' ? r.band : null, cfg.maxHr) : null;
+const today = cfg.plan ? todaySession(cfg.plan, d, r.status === 'ok' ? r.band : null, cfg.maxHr, { limited: (r.limiters || []).length > 0 }) : null;
 const suggestion = today?.advice || r.suggestion;
 const headline = r.suggestion && suggestion !== r.suggestion ? r.message.replace(r.suggestion, suggestion) : r.message;
 const message = today ? `${headline} Today: ${today.suggestion}.` : r.message;
@@ -292,10 +292,15 @@ const base = { date, components, inputs, missing, caps };
 const keys = Object.keys(components);
 const ownAvailable = components.hrv !== undefined || components.rhr !== undefined;
 let estimateScore = null;
+let converged = false;
 if (ownAvailable) {
 const weightSum = keys.reduce((s, k) => s + cfg.weights[k], 0);
 estimateScore = keys.reduce((s, k) => s + components[k] * cfg.weights[k], 0) / weightSum;
 if (caps.length) estimateScore = Math.min(estimateScore, 30);
+if (['hrv', 'rhr', 'sleep'].every((k) => components[k] !== undefined && components[k] < 50)) {
+estimateScore = Math.min(estimateScore, 49);
+if (!caps.length) converged = true;
+}
 estimateScore = Math.round(estimateScore);
 }
 const device = cfg.useDeviceReadiness === false ? null : today.deviceReadiness;
@@ -309,6 +314,7 @@ const band = bandFor(score);
 const source = useDevice ? device.source || 'device' : 'Headroom estimate';
 const limiters = [
 ...caps,
+...(converged && !useDevice ? ['HRV, resting HR and sleep all below your normal'] : []),
 ...keys
 .filter((k) => components[k] < 60)
 .sort((a, b) => components[a] - components[b])
@@ -590,20 +596,26 @@ parts.push(type === 'easy' ? `Easy ${lowKm} km` : `Easy ${lowKm} km (was ${RUN_N
 if (day.strength) parts.push(parts.length ? 'strength' : 'Strength');
 return parts.join(' + ') || 'Rest';
 }
-function planAdvice(day, band) {
+function planAdvice(day, band, limited) {
+const type = day.run?.type;
+if (band === 'Moderate' && limited) {
+if (type === 'intervals' || type === 'tempo') return 'Recovery is a bit behind: keep the session controlled, or swap to easy if it feels hard.';
+if (type) return 'Recovery is a bit behind: keep it easy, and shorten it if it feels hard.';
+if (day.strength) return 'Recovery is a bit behind: train as planned, but leave a rep or two in reserve.';
+return 'Rest day as planned, which suits today.';
+}
 if (band !== 'High' && band !== 'Moderate') {
 if (band === 'Low' && !day.run) return day.strength ? 'Recovery is lagging: lift lighter than usual today.' : 'Rest day as planned, which suits today.';
 return null;
 }
 const high = band === 'High';
-const type = day.run?.type;
 if (type === 'intervals' || type === 'tempo') return high ? 'Well recovered: a good day for the planned hard session.' : 'Do the planned session, but keep it controlled.';
 if (type === 'runwalk') return high ? "Well recovered: do today's run/walk as planned." : "A normal day: do today's run/walk as planned.";
 if (type) return high ? 'Well recovered. Keep the run easy anyway: easy days are what make the hard days work.' : 'A normal day: run as planned, at an easy effort.';
 if (day.strength) return high ? 'Well recovered: a good day to push in the gym.' : 'A normal day: train as planned.';
 return high ? "Rest day as planned. You're recovering well; keep it that way." : 'Rest day as planned.';
 }
-function todaySession(prefs, date, band, maxHr) {
+function todaySession(prefs, date, band, maxHr, { limited = false } = {}) {
 const week = buildWeek(prefs, date, maxHr);
 const day = week.days[weekdayOf(date)];
 const parts = [];
@@ -640,9 +652,14 @@ if (band === 'Low') changed = true;
 if (day.accessory && band !== 'Low') parts.push('12-min runner strength block');
 if (!parts.length) parts.push('Rest day');
 }
+const tomorrow = week.days[WEEKDAYS[WEEKDAYS.indexOf(weekdayOf(date)) + 1]];
+const bigRun = day.run && ['long', 'intervals', 'tempo'].includes(day.run.type);
+const down = band === 'Low' || band === 'Poor' || (band === 'Moderate' && limited);
+const swap = Boolean(bigRun && down && tomorrow && !tomorrow.run && !tomorrow.strength);
+if (swap) parts[parts.length - 1] += `, or move the ${day.run.type === 'long' ? 'long run' : day.run.type} to tomorrow, your rest day`;
 return {
 day: weekdayOf(date),
-advice: planAdvice(day, band),
+advice: planAdvice(day, band, limited),
 week: week.week,
 weekTargetKm: week.targetKm,
 recoveryWeek: week.recovery,
@@ -650,6 +667,7 @@ suggestion: parts.join(' + '),
 short: shortLabel(day, band),
 planned: day.run ? day.run.text : null,
 changed,
+swap,
 accessory: day.accessory && band !== 'Low' && band !== 'Poor' ? ACCESSORY : null,
 notes: week.notes,
 beginner: week.beginner || null,

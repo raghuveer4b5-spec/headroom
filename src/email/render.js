@@ -103,7 +103,7 @@ function renderEmail(result, config = {}) {
   }
 
   const color = BAND_COLOR[result.band] || INK;
-  const today = plan ? todaySession(plan, date, result.band, maxHr) : null;
+  const today = plan ? todaySession(plan, date, result.band, maxHr, { limited: (result.limiters || []).length > 0 }) : null;
   const subject = dailySubject(result, today);
   const advice = (today && today.advice) || result.suggestion || '';
   const rows = componentRows(result.components || {}, result.inputs || {});

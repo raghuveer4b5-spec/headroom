@@ -213,13 +213,20 @@ function shortLabel(day, band) {
 // The headline advice for a day with a plan. The score alone would say "good day for intervals"
 // on a strength or easy day, so with a plan the advice follows the planned session instead.
 // Low and Poor keep the score's own advice (null here): the session itself is already adjusted.
-function planAdvice(day, band) {
+function planAdvice(day, band, limited) {
+  const type = day.run?.type;
+  if (band === 'Moderate' && limited) {
+    // A Moderate score with something holding it back isn't "a normal day".
+    if (type === 'intervals' || type === 'tempo') return 'Recovery is a bit behind: keep the session controlled, or swap to easy if it feels hard.';
+    if (type) return 'Recovery is a bit behind: keep it easy, and shorten it if it feels hard.';
+    if (day.strength) return 'Recovery is a bit behind: train as planned, but leave a rep or two in reserve.';
+    return 'Rest day as planned, which suits today.';
+  }
   if (band !== 'High' && band !== 'Moderate') {
     if (band === 'Low' && !day.run) return day.strength ? 'Recovery is lagging: lift lighter than usual today.' : 'Rest day as planned, which suits today.';
     return null;
   }
   const high = band === 'High';
-  const type = day.run?.type;
   if (type === 'intervals' || type === 'tempo') return high ? 'Well recovered: a good day for the planned hard session.' : 'Do the planned session, but keep it controlled.';
   if (type === 'runwalk') return high ? "Well recovered: do today's run/walk as planned." : "A normal day: do today's run/walk as planned.";
   if (type) return high ? 'Well recovered. Keep the run easy anyway: easy days are what make the hard days work.' : 'A normal day: run as planned, at an easy effort.';
@@ -227,7 +234,7 @@ function planAdvice(day, band) {
   return high ? "Rest day as planned. You're recovering well; keep it that way." : 'Rest day as planned.';
 }
 
-function todaySession(prefs, date, band, maxHr) {
+function todaySession(prefs, date, band, maxHr, { limited = false } = {}) {
   const week = buildWeek(prefs, date, maxHr);
   const day = week.days[weekdayOf(date)];
   const parts = [];
@@ -268,9 +275,16 @@ function todaySession(prefs, date, band, maxHr) {
     if (!parts.length) parts.push('Rest day');
   }
 
+  // A long or hard run on a down day can move into tomorrow when tomorrow is a rest day.
+  const tomorrow = week.days[WEEKDAYS[WEEKDAYS.indexOf(weekdayOf(date)) + 1]];
+  const bigRun = day.run && ['long', 'intervals', 'tempo'].includes(day.run.type);
+  const down = band === 'Low' || band === 'Poor' || (band === 'Moderate' && limited);
+  const swap = Boolean(bigRun && down && tomorrow && !tomorrow.run && !tomorrow.strength);
+  if (swap) parts[parts.length - 1] += `, or move the ${day.run.type === 'long' ? 'long run' : day.run.type} to tomorrow, your rest day`;
+
   return {
     day: weekdayOf(date),
-    advice: planAdvice(day, band),
+    advice: planAdvice(day, band, limited),
     week: week.week,
     weekTargetKm: week.targetKm,
     recoveryWeek: week.recovery,
@@ -278,6 +292,7 @@ function todaySession(prefs, date, band, maxHr) {
     short: shortLabel(day, band),
     planned: day.run ? day.run.text : null,
     changed,
+    swap,
     accessory: day.accessory && band !== 'Low' && band !== 'Poor' ? ACCESSORY : null,
     notes: week.notes,
     beginner: week.beginner || null,

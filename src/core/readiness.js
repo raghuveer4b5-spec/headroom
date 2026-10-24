@@ -138,10 +138,17 @@ function computeReadiness(data, date, config = {}) {
   const keys = Object.keys(components);
   const ownAvailable = components.hrv !== undefined || components.rhr !== undefined;
   let estimateScore = null;
+  let converged = false;
   if (ownAvailable) {
     const weightSum = keys.reduce((s, k) => s + cfg.weights[k], 0);
     estimateScore = keys.reduce((s, k) => s + components[k] * cfg.weights[k], 0) / weightSum;
     if (caps.length) estimateScore = Math.min(estimateScore, 30);
+    // When all three recovery signals are down together, a normal training load shouldn't
+    // average them back up to Moderate: load says what you did, not how you've recovered.
+    if (['hrv', 'rhr', 'sleep'].every((k) => components[k] !== undefined && components[k] < 50)) {
+      estimateScore = Math.min(estimateScore, 49);
+      if (!caps.length) converged = true;
+    }
     estimateScore = Math.round(estimateScore);
   }
 
@@ -160,6 +167,7 @@ function computeReadiness(data, date, config = {}) {
   const source = useDevice ? device.source || 'device' : 'Headroom estimate';
   const limiters = [
     ...caps,
+    ...(converged && !useDevice ? ['HRV, resting HR and sleep all below your normal'] : []),
     ...keys
       .filter((k) => components[k] < 60)
       .sort((a, b) => components[a] - components[b])

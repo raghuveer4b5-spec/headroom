@@ -103,3 +103,16 @@ test('strength days are scheduled, never programmed', () => {
   assert.doesNotMatch(s.suggestion, /squat|bench|deadlift|press/i);
   assert.match(todaySession(PREFS, '2026-10-19', 'Low', MAX_HR).suggestion, /lighter than usual/);
 });
+
+test('a Moderate day with limiters is not called normal, and a down day offers the rest-day swap', () => {
+  const prefs = { goal: '5k', runsPerWeek: 3, longRunDay: 'sat', liftDays: ['mon', 'wed', 'fri'], priority: 'balanced', startDate: '2026-10-19', baseWeeklyKm: 9, baseLongKm: 7 };
+  const sat = '2026-10-24';
+  assert.equal(buildWeek(prefs, sat, 196).days.sat.run.type, 'long');
+  assert.match(todaySession(prefs, sat, 'Moderate', 196).advice, /^A normal day/);
+  const limited = todaySession(prefs, sat, 'Moderate', 196, { limited: true });
+  assert.match(limited.advice, /^Recovery is a bit behind/);
+  assert.match(limited.suggestion, /or move the long run to tomorrow, your rest day$/);
+  assert.ok(limited.swap);
+  assert.match(todaySession(prefs, sat, 'Low', 196).suggestion, /instead of the planned long run, or move the long run to tomorrow/);
+  assert.ok(!todaySession(prefs, sat, 'High', 196).swap);
+});

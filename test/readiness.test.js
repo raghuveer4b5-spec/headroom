@@ -126,3 +126,14 @@ test('load ratio needs 21 days of coverage', () => {
   });
   assert.equal(s.ratio, null);
 });
+
+test('HRV, resting HR and sleep all down together caps the score at Low, even with normal load', () => {
+  const short = { sleepSeconds: 5.4 * 3600, sleepScore: 60 };
+  const data = syntheticData({ overrides: { '2026-10-20': short, '2026-10-21': short, '2026-10-22': { ...short, hrvLastNight: 60, restingHr: 56, bodyBatteryWake: 57 } } });
+  const r = computeReadiness(data, '2026-10-22', { maxHr: 190 });
+  assert.ok(['hrv', 'rhr', 'sleep'].every((k) => r.components[k] < 50), JSON.stringify(r.components));
+  assert.equal(r.band, 'Low');
+  assert.match(r.limiters[0], /all below your normal/);
+  const oneDown = computeReadiness(syntheticData({ overrides: { '2026-10-22': { sleepSeconds: 5.4 * 3600, sleepScore: 60 } } }), '2026-10-22', { maxHr: 190 });
+  assert.notEqual(oneDown.band, 'Low', 'one bad signal alone is not capped');
+});

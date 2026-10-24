@@ -76,7 +76,7 @@ async function morningCheck({ date, config } = {}) {
   if (unreachable(data)) return JSON.stringify({ date: d, status: 'unreachable', message: UNREACHABLE_MESSAGE });
   const cfg = resolveConfig(config, data.activities);
   const r = computeReadiness(data, d, cfg);
-  const today = cfg.plan ? todaySession(cfg.plan, d, r.status === 'ok' ? r.band : null, cfg.maxHr) : null;
+  const today = cfg.plan ? todaySession(cfg.plan, d, r.status === 'ok' ? r.band : null, cfg.maxHr, { limited: (r.limiters || []).length > 0 }) : null;
   // With a plan, the headline advice follows today's session rather than the score alone.
   const suggestion = today?.advice || r.suggestion;
   const headline = r.suggestion && suggestion !== r.suggestion ? r.message.replace(r.suggestion, suggestion) : r.message;
