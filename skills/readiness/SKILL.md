@@ -34,7 +34,7 @@ Computes a readiness score from overnight HRV, resting HR, sleep, training load 
 - Whether to deliver follows `notify` in the config: `daily` (or no config) always; `low-and-poor` only when the band is Low or Poor, or the status isn't `ok`; `none` never.
 - **Email** (when `email` is set in the config): save the full result JSON to `~/.headroom/last.json`, run `node tools/email.js ~/.headroom/last.json` from the plugin root (two levels up from this skill's directory), then read `~/.headroom/email.json` and send it with the Gmail send tool: `to` = the config's `email`, `subject`, `htmlBody` = `html`, `body` = `text`. Send it exactly as rendered; don't edit or summarise it. Only ever send to the config's own `email` address.
 - **Push** (when a push notification tool is available and `push` isn't `false` in the config): send `message` unchanged. If push reports Remote Control is off, note it in the summary; email is the reliable channel.
-- With a training plan in the config, `message` already ends with "Today: ..." (the planned session, adjusted for readiness). If `today.accessory` is set, list that runner-strength block in chat (not in the notification). Mention `today.notes` if any.
+- With a training plan in the config, `message` already ends with "Today: ..." (the planned session, adjusted for readiness). When yesterday's run was very different from the plan, `message` ends with a note about it (`yesterday.note`), and the email shows it too. If `today.accessory` is set, list that runner-strength block in chat (not in the notification). Mention `today.notes` if any.
 - In chat, lead with `message`, then a compact table of `components` (HRV, resting HR, sleep, load, Body Battery: each 0-100, about 70 is a normal day) with the matching `inputs` (for example HRV 52 vs baseline 58 ms, load ratio 1.42x).
 - `source` says where the score came from. On watches that have Garmin Training Readiness, the script uses Garmin's score and `message` says so; `estimateScore` is the Headroom estimate for comparison, worth one line in chat if the two differ by more than 15 points. Otherwise the score is the Headroom estimate.
 - Keep it short. A Headroom estimate is not medical advice, and not Garmin's own Training Readiness.
@@ -44,7 +44,7 @@ Computes a readiness score from overnight HRV, resting HR, sleep, training load 
 Append one JSON line to `~/.headroom/history.jsonl` on every run, including failed ones (create the folder if needed):
 
 ```json
-{"date":"2026-10-22","status":"ok","score":64,"band":"Moderate","source":"Headroom estimate","estimateScore":64,"runs7d":3,"components":{"hrv":58,"rhr":70,"sleep":66,"load":60,"bodyBattery":72}}
+{"date":"2026-10-22","status":"ok","score":64,"band":"Moderate","source":"Headroom estimate","estimateScore":64,"runs7d":3,"recent":{"km7d":20.6,"longestKm28d":12.5},"yesterday":{"planned":7,"ranKm":12.5},"components":{"hrv":58,"rhr":70,"sleep":66,"load":60,"bodyBattery":72}}
 {"date":"2026-10-23","status":"failed","reason":"Chrome site approval for connect.garmin.com timed out"}
 ```
 
@@ -63,7 +63,7 @@ Present it as a short summary: how many High/Moderate/Low/Poor days, the lowest 
 Sent on Sunday evening for the week starting the next day. It needs only the config, not Garmin data or Chrome.
 
 1. Read `~/.headroom/config.json`. If it has no `plan` or no `email`, stop and say setup is needed.
-2. From the plugin root, run `node tools/weekly.js --commit` (add `--date YYYY-MM-DD` for a different week). For beginners, `--commit` saves whether they move up a stage or repeat it, decided from last week's runs and readiness in `history.jsonl`; leave it off for previews. If the user asks to repeat their current stage, set `plan.repeatNext` to `true` in the config before Sunday.
+2. From the plugin root, run `node tools/weekly.js --commit` (add `--date YYYY-MM-DD` for a different week). It builds the week from what was actually run, using `recent` from the latest morning check in `history.jsonl`, and `--commit` saves that to the config so the week's morning checks match the email. For beginners, `--commit` saves whether they move up a stage or repeat it, decided from last week's runs and readiness in `history.jsonl`; leave it off for previews. If the user asks to repeat their current stage, set `plan.repeatNext` to `true` in the config before Sunday.
 3. Read `~/.headroom/weekly.json` and send it with the Gmail send tool: `to` = the config's `email` only, `subject`, `htmlBody` = `html`, `body` = `text`. Send it exactly as rendered.
 
 ## This week's plan

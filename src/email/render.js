@@ -136,7 +136,10 @@ function renderEmail(result, config = {}) {
     const accessory = today.accessory
       ? `<p style="margin:14px 0 0;font-size:13px;line-height:1.6;color:${INK};background:#F6F7F9;border-radius:8px;padding:10px 12px">${esc(today.accessory)}</p>`
       : '';
-    workout = card(`${label("TODAY'S WORKOUT")}<p style="margin:0;font-size:17px;line-height:1.5;font-weight:600;color:${INK}">${esc(today.suggestion)}</p>${changed}${accessory}`, `;border-left:4px solid ${color}`);
+    const note = result.yesterday && result.yesterday.note
+      ? `<p style="margin:12px 0 0;font-size:13px;line-height:1.55;color:${MUTED}">${esc(result.yesterday.note)}</p>`
+      : '';
+    workout = card(`${label("TODAY'S WORKOUT")}<p style="margin:0;font-size:17px;line-height:1.5;font-weight:600;color:${INK}">${esc(today.suggestion)}</p>${changed}${accessory}${note}`, `;border-left:4px solid ${color}`);
   }
 
   const bars = rows
@@ -183,6 +186,7 @@ function renderEmail(result, config = {}) {
     advice,
     today ? `\nToday: ${today.suggestion}` : '',
     today && today.accessory ? today.accessory : '',
+    today && result.yesterday && result.yesterday.note ? result.yesterday.note : '',
     rows.length ? `\nWhat shaped the score:\n${rows.map(([n, v, d]) => `- ${n}: ${v} (${d})`).join('\n')}` : '',
     limiters.length ? `\n${fromDevice ? 'Worth knowing' : 'Held back by'}: ${limiters.join('; ')}` : '',
   ];

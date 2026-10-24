@@ -3,7 +3,7 @@
 const { computeReadiness, DEFAULT_CONFIG } = require('./core/readiness');
 const { isHard, observedMaxHr, ageMaxHr } = require('./core/load');
 const { addDays, daysBetween, round } = require('./core/stats');
-const { todaySession, weekdayOf, buildWeek, WEEKDAYS } = require('./core/plan');
+const { todaySession, compareDay, weekdayOf, buildWeek, WEEKDAYS } = require('./core/plan');
 const { DISTANCE_KM, riegel, formatTime } = require('./core/pace');
 const { fetchCommon } = require('./adapters/garmin-browser');
 
@@ -80,12 +80,16 @@ async function morningCheck({ date, config } = {}) {
   // With a plan, the headline advice follows today's session rather than the score alone.
   const suggestion = today?.advice || r.suggestion;
   const headline = r.suggestion && suggestion !== r.suggestion ? r.message.replace(r.suggestion, suggestion) : r.message;
-  const message = today ? `${headline} Today: ${today.suggestion}.` : r.message;
-  // Runs in the last 7 days, logged so the Sunday job can judge beginner progress without Garmin.
-  const runs7d = data.activities.filter((a) => {
+  const runsWithin = (from, to) => data.activities.filter((a) => {
     const ago = daysBetween(a.start.slice(0, 10), d);
-    return a.type.includes('running') && ago >= 1 && ago <= 7;
-  }).length;
+    return a.type.includes('running') && ago >= from && ago <= to;
+  });
+  const km = (runs) => runs.reduce((s, a) => s + a.distanceM / 1000, 0);
+  const yesterday = cfg.plan ? compareDay(cfg.plan, addDays(d, -1), km(runsWithin(1, 1)), cfg.maxHr) : null;
+  const message = today ? `${headline} Today: ${today.suggestion}.${yesterday?.note ? ` ${yesterday.note}` : ''}` : r.message;
+  // Logged so the Sunday job can plan from what was actually run, and judge beginner progress, without Garmin.
+  const runs7d = runsWithin(1, 7).length;
+  const recent = { km7d: round(km(runsWithin(1, 7)), 1), longestKm28d: round(runsWithin(1, 28).reduce((m, a) => Math.max(m, a.distanceM / 1000), 0), 1) };
   return paged(JSON.stringify({
     date: r.date,
     status: r.status,
@@ -97,6 +101,8 @@ async function morningCheck({ date, config } = {}) {
     suggestion,
     limiters: r.limiters,
     runs7d,
+    recent,
+    yesterday,
     today: today && { week: today.week, weekTargetKm: today.weekTargetKm, recoveryWeek: today.recoveryWeek, changed: today.changed, accessory: today.accessory, notes: today.notes },
     components: r.components,
     inputs: r.inputs,

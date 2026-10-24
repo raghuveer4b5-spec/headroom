@@ -5,7 +5,7 @@ const defs = {
 const { computeReadiness, DEFAULT_CONFIG } = __req('core/readiness.js');
 const { isHard, observedMaxHr, ageMaxHr } = __req('core/load.js');
 const { addDays, daysBetween, round } = __req('core/stats.js');
-const { todaySession, weekdayOf, buildWeek, WEEKDAYS } = __req('core/plan.js');
+const { todaySession, compareDay, weekdayOf, buildWeek, WEEKDAYS } = __req('core/plan.js');
 const { DISTANCE_KM, riegel, formatTime } = __req('core/pace.js');
 const { fetchCommon } = __req('adapters/garmin-browser.js');
 const PAGE = 900;
@@ -65,11 +65,15 @@ const r = computeReadiness(data, d, cfg);
 const today = cfg.plan ? todaySession(cfg.plan, d, r.status === 'ok' ? r.band : null, cfg.maxHr, { limited: (r.limiters || []).length > 0 }) : null;
 const suggestion = today?.advice || r.suggestion;
 const headline = r.suggestion && suggestion !== r.suggestion ? r.message.replace(r.suggestion, suggestion) : r.message;
-const message = today ? `${headline} Today: ${today.suggestion}.` : r.message;
-const runs7d = data.activities.filter((a) => {
+const runsWithin = (from, to) => data.activities.filter((a) => {
 const ago = daysBetween(a.start.slice(0, 10), d);
-return a.type.includes('running') && ago >= 1 && ago <= 7;
-}).length;
+return a.type.includes('running') && ago >= from && ago <= to;
+});
+const km = (runs) => runs.reduce((s, a) => s + a.distanceM / 1000, 0);
+const yesterday = cfg.plan ? compareDay(cfg.plan, addDays(d, -1), km(runsWithin(1, 1)), cfg.maxHr) : null;
+const message = today ? `${headline} Today: ${today.suggestion}.${yesterday?.note ? ` ${yesterday.note}` : ''}` : r.message;
+const runs7d = runsWithin(1, 7).length;
+const recent = { km7d: round(km(runsWithin(1, 7)), 1), longestKm28d: round(runsWithin(1, 28).reduce((m, a) => Math.max(m, a.distanceM / 1000), 0), 1) };
 return paged(JSON.stringify({
 date: r.date,
 status: r.status,
@@ -81,6 +85,8 @@ message,
 suggestion,
 limiters: r.limiters,
 runs7d,
+recent,
+yesterday,
 today: today && { week: today.week, weekTargetKm: today.weekTargetKm, recoveryWeek: today.recoveryWeek, changed: today.changed, accessory: today.accessory, notes: today.notes },
 components: r.components,
 inputs: r.inputs,
@@ -414,7 +420,7 @@ return typeof age === 'number' && age >= 10 && age <= 100 ? Math.round(208 - 0.7
 module.exports = { activityLoad, isHard, loadSummary, ratioScore, observedMaxHr, ageMaxHr };
 },
 'core/plan.js': function (module, exports, __req) {
-const { daysBetween, clamp } = __req('core/stats.js');
+const { daysBetween, clamp, addDays, isNum, round } = __req('core/stats.js');
 const { planPaces, formatPace } = __req('core/pace.js');
 const { stageOf, describe, LAST } = __req('core/beginner.js');
 const WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
@@ -494,13 +500,23 @@ break;
 }
 return { hard, notes };
 }
+function recentFor(prefs, date) {
+const r = prefs.recent;
+return r && r.week === addDays(date, -idx(weekdayOf(date))) ? r : null;
+}
 function weeklyTargetKm(prefs, date) {
 const goal = prefs.goal || 'fitness';
 const peak = PEAK_KM[goal] || PEAK_KM.fitness;
 const week = Math.max(0, Math.floor(daysBetween(prefs.startDate || date, date) / 7));
 let build = Math.min(peak, Math.max(10, prefs.baseWeeklyKm || 10));
 for (let w = 1; w <= week; w++) if (w % 4 !== 3) build = Math.min(peak, build * 1.1);
-return { week: week + 1, km: halfKm(week % 4 === 3 ? build * 0.8 : build), recovery: week % 4 === 3 };
+const recent = recentFor(prefs, date);
+let capped = false;
+if (recent && isNum(recent.km7d) && recent.km7d * 1.15 < build) {
+build = Math.max(10, recent.km7d * 1.15);
+capped = true;
+}
+return { week: week + 1, km: halfKm(week % 4 === 3 ? build * 0.8 : build), recovery: week % 4 === 3, capped };
 }
 function buildBeginnerWeek(prefs, date) {
 const liftDays = prefs.liftDays || [];
@@ -545,7 +561,9 @@ const { hard, notes } = assignHard(runDays, longRunDay, planPrefs);
 const reps = target.km < 15 ? 3 : target.km < 25 ? 4 : 5;
 const tempoMin = target.km < 15 ? 15 : target.km < 25 ? 20 : 25;
 const sizes = { intervals: 2.5 + reps, tempo: halfKm(2.5 + tempoMin / 5.5) };
-const longKm = Math.max(4, Math.min(LONG_CAP_KM[goal] || 10, halfKm(Math.max(target.km * 0.3, (prefs.baseLongKm || 0) * 0.7))));
+const recent = recentFor(prefs, date);
+const longestKm = Math.max(prefs.baseLongKm || 0, (recent && recent.longestKm28d) || 0);
+const longKm = Math.max(4, Math.min(LONG_CAP_KM[goal] || 10, halfKm(Math.max(target.km * 0.3, longestKm * 0.7))));
 const easyDays = runDays.filter((d) => d !== longRunDay && !hard[d]);
 const hardKm = Object.values(hard).reduce((s, t) => s + sizes[t], 0);
 const easyKm = easyDays.length ? Math.max(2.5, halfKm((target.km - longKm - hardKm) / easyDays.length)) : 0;
@@ -577,7 +595,10 @@ else if (hard[d]) run = { type: hard[d], km: sizes[hard[d]], text: text[hard[d]]
 else if (runDays.includes(d)) run = { type: 'easy', km: easyKm, text: text.easy(easyKm) };
 days[d] = { run, strength: liftDays.includes(d), accessory: accessoryDays.includes(d) };
 }
-return { week: target.week, targetKm: plannedKm, recovery: target.recovery, runDays, days, notes, text, paces };
+const actual = recent
+? { km7d: recent.km7d, longestKm28d: recent.longestKm28d, capped: target.capped, longFromActual: (recent.longestKm28d || 0) > (prefs.baseLongKm || 0) }
+: null;
+return { week: target.week, targetKm: plannedKm, recovery: target.recovery, runDays, days, notes, text, paces, actual };
 }
 const RUN_NAMES = { easy: 'Easy', long: 'Long run', intervals: 'Intervals', tempo: 'Tempo' };
 function shortLabel(day, band) {
@@ -673,7 +694,26 @@ notes: week.notes,
 beginner: week.beginner || null,
 };
 }
-module.exports = { WEEKDAYS, weekdayOf, chooseRunDays, assignHard, weeklyTargetKm, buildWeek, todaySession, shortLabel, ACCESSORY };
+function compareDay(prefs, date, ranKm, maxHr) {
+const day = buildWeek(prefs, date, maxHr).days[weekdayOf(date)];
+const tomorrow = buildWeek(prefs, addDays(date, 1), maxHr).days[weekdayOf(addDays(date, 1))];
+const ran = round(ranKm || 0, 1);
+const planned = day.run ? (day.run.type === 'runwalk' ? 'runwalk' : day.run.km) : null;
+const name = day.run ? (day.run.type === 'runwalk' ? 'run/walk' : day.run.type === 'long' ? 'long run' : `${day.run.type} run`) : null;
+const builds = prefs.mode === 'beginner' ? '' : " Sunday's plan builds from what you actually ran.";
+let note = null;
+if (!day.run && ran >= 2) note = `Yesterday you ran ${ran} km on a day with no run planned.${builds}`;
+else if (typeof planned === 'number' && ran >= planned * 1.3 && ran - planned >= 2) {
+note = `Yesterday you ran ${ran} km against ${planned} km planned.${builds}`;
+} else if (day.run && (planned === 'runwalk' ? ran === 0 : ran < planned * 0.5)) {
+const what = ran === 0 ? `Yesterday's ${name} isn't in Garmin yet.` : `Yesterday you ran ${ran} km of the ${planned} km ${name}.`;
+const big = ['long', 'intervals', 'tempo'].includes(day.run.type);
+const free = tomorrow && !tomorrow.run && !tomorrow.strength;
+note = `${what} ${big && free ? 'Today is a rest day, so you can still fit it in if readiness allows.' : "Let it go rather than doubling up today."}`;
+}
+return { planned, ranKm: ran, note };
+}
+module.exports = { WEEKDAYS, weekdayOf, chooseRunDays, assignHard, weeklyTargetKm, buildWeek, todaySession, shortLabel, compareDay, ACCESSORY };
 },
 'core/pace.js': function (module, exports, __req) {
 const DISTANCE_KM = { '5k': 5, '10k': 10, half: 21.0975, fitness: 5 };

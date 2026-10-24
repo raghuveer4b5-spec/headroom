@@ -79,6 +79,14 @@ function regularHero(plan, week, monday, maxHr, counts) {
   else if (prevKm === null) change = "Week 1 is based on what you've actually been running lately.";
   else if (km > prevKm) change = `Up ${Math.round(((km - prevKm) / prevKm) * 100)}% on last week's ${prevKm} km.`;
   else change = `The same ${km} km as last week. Your long run is already ahead of your usual weekly distance, so the total holds steady until the rest of your week catches up.`;
+  // Built from what was actually run: say so, since it overrides the schedule above.
+  const a = week.actual;
+  if (a && a.capped) change = `You ran ${a.km7d} km in the last 7 days, so this week builds from that instead of the schedule: ${km} km.`;
+  else if (a) change += ` You ran ${a.km7d} km in the last 7 days.`;
+  if (a && a.longFromActual) {
+    const longKm = WEEKDAYS.map((d) => week.days[d].run).find((r) => r && r.type === 'long')?.km;
+    if (longKm) change += ` Your ${a.longestKm28d} km run sets this week's long run at ${longKm} km, about 70% of it.`;
+  }
   const spacing = hard > 1
     ? 'Hard runs are 48 hours apart and kept off the day after strength training where the week allows.'
     : 'One hard run, kept off the day after strength training where the week allows.';

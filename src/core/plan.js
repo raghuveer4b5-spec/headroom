@@ -1,6 +1,6 @@
 // Weekly run plan that fits around the user's strength days, plus today's session
 // adjusted by readiness. Running is prescribed; strength training is a black box we only schedule around.
-const { daysBetween, clamp } = require('./stats');
+const { daysBetween, clamp, addDays, isNum, round } = require('./stats');
 const { planPaces, formatPace } = require('./pace');
 const { stageOf, describe, LAST } = require('./beginner');
 
@@ -93,13 +93,28 @@ function assignHard(runDays, longRunDay, prefs) {
   return { hard, notes };
 }
 
+// What the user actually ran, saved by the Sunday job for the week it planned. Other weeks ignore it,
+// so a week's plan doesn't shift from day to day as runs come in.
+function recentFor(prefs, date) {
+  const r = prefs.recent;
+  return r && r.week === addDays(date, -idx(weekdayOf(date))) ? r : null;
+}
+
 function weeklyTargetKm(prefs, date) {
   const goal = prefs.goal || 'fitness';
   const peak = PEAK_KM[goal] || PEAK_KM.fitness;
   const week = Math.max(0, Math.floor(daysBetween(prefs.startDate || date, date) / 7));
   let build = Math.min(peak, Math.max(10, prefs.baseWeeklyKm || 10));
   for (let w = 1; w <= week; w++) if (w % 4 !== 3) build = Math.min(peak, build * 1.1);
-  return { week: week + 1, km: halfKm(week % 4 === 3 ? build * 0.8 : build), recovery: week % 4 === 3 };
+  // Never build more than 15% past what was actually run last week. Running more than planned
+  // doesn't speed up the schedule; running less holds it back.
+  const recent = recentFor(prefs, date);
+  let capped = false;
+  if (recent && isNum(recent.km7d) && recent.km7d * 1.15 < build) {
+    build = Math.max(10, recent.km7d * 1.15);
+    capped = true;
+  }
+  return { week: week + 1, km: halfKm(week % 4 === 3 ? build * 0.8 : build), recovery: week % 4 === 3, capped };
 }
 
 // Beginner weeks: two or three run/walk sessions at the current stage, spaced around strength days.
@@ -150,7 +165,9 @@ function buildWeek(prefs, date, maxHr) {
   const sizes = { intervals: 2.5 + reps, tempo: halfKm(2.5 + tempoMin / 5.5) };
   // A low weekly average can hide a runner who already handles longer runs, so the
   // long run also builds from 70% of the longest recent run.
-  const longKm = Math.max(4, Math.min(LONG_CAP_KM[goal] || 10, halfKm(Math.max(target.km * 0.3, (prefs.baseLongKm || 0) * 0.7))));
+  const recent = recentFor(prefs, date);
+  const longestKm = Math.max(prefs.baseLongKm || 0, (recent && recent.longestKm28d) || 0);
+  const longKm = Math.max(4, Math.min(LONG_CAP_KM[goal] || 10, halfKm(Math.max(target.km * 0.3, longestKm * 0.7))));
   const easyDays = runDays.filter((d) => d !== longRunDay && !hard[d]);
   const hardKm = Object.values(hard).reduce((s, t) => s + sizes[t], 0);
   const easyKm = easyDays.length ? Math.max(2.5, halfKm((target.km - longKm - hardKm) / easyDays.length)) : 0;
@@ -187,7 +204,10 @@ function buildWeek(prefs, date, maxHr) {
     else if (runDays.includes(d)) run = { type: 'easy', km: easyKm, text: text.easy(easyKm) };
     days[d] = { run, strength: liftDays.includes(d), accessory: accessoryDays.includes(d) };
   }
-  return { week: target.week, targetKm: plannedKm, recovery: target.recovery, runDays, days, notes, text, paces };
+  const actual = recent
+    ? { km7d: recent.km7d, longestKm28d: recent.longestKm28d, capped: target.capped, longFromActual: (recent.longestKm28d || 0) > (prefs.baseLongKm || 0) }
+    : null;
+  return { week: target.week, targetKm: plannedKm, recovery: target.recovery, runDays, days, notes, text, paces, actual };
 }
 
 const RUN_NAMES = { easy: 'Easy', long: 'Long run', intervals: 'Intervals', tempo: 'Tempo' };
@@ -299,4 +319,26 @@ function todaySession(prefs, date, band, maxHr, { limited = false } = {}) {
   };
 }
 
-module.exports = { WEEKDAYS, weekdayOf, chooseRunDays, assignHard, weeklyTargetKm, buildWeek, todaySession, shortLabel, ACCESSORY };
+// Yesterday's run against yesterday's plan, as a note for the morning email when they differ a lot.
+function compareDay(prefs, date, ranKm, maxHr) {
+  const day = buildWeek(prefs, date, maxHr).days[weekdayOf(date)];
+  const tomorrow = buildWeek(prefs, addDays(date, 1), maxHr).days[weekdayOf(addDays(date, 1))];
+  const ran = round(ranKm || 0, 1);
+  const planned = day.run ? (day.run.type === 'runwalk' ? 'runwalk' : day.run.km) : null;
+  const name = day.run ? (day.run.type === 'runwalk' ? 'run/walk' : day.run.type === 'long' ? 'long run' : `${day.run.type} run`) : null;
+  const builds = prefs.mode === 'beginner' ? '' : " Sunday's plan builds from what you actually ran.";
+  let note = null;
+  if (!day.run && ran >= 2) note = `Yesterday you ran ${ran} km on a day with no run planned.${builds}`;
+  else if (typeof planned === 'number' && ran >= planned * 1.3 && ran - planned >= 2) {
+    note = `Yesterday you ran ${ran} km against ${planned} km planned.${builds}`;
+  } else if (day.run && (planned === 'runwalk' ? ran === 0 : ran < planned * 0.5)) {
+    const what = ran === 0 ? `Yesterday's ${name} isn't in Garmin yet.` : `Yesterday you ran ${ran} km of the ${planned} km ${name}.`;
+    // A missed long or hard run can still move into a free day; otherwise it's gone, not owed.
+    const big = ['long', 'intervals', 'tempo'].includes(day.run.type);
+    const free = tomorrow && !tomorrow.run && !tomorrow.strength;
+    note = `${what} ${big && free ? 'Today is a rest day, so you can still fit it in if readiness allows.' : "Let it go rather than doubling up today."}`;
+  }
+  return { planned, ranKm: ran, note };
+}
+
+module.exports = { WEEKDAYS, weekdayOf, chooseRunDays, assignHard, weeklyTargetKm, buildWeek, todaySession, shortLabel, compareDay, ACCESSORY };
