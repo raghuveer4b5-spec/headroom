@@ -55,7 +55,7 @@ Headroom schedules your runs and two 12-minute bodyweight runner-strength blocks
 - **Hard runs are at least 48 hours apart** and kept off the day after strength training when the week allows. When they share a day: run first, lift later.
 - **One hard run, not two, below 15 km a week,** because warm-ups and cool-downs add up.
 - **The long run builds from your longest recent run,** so a few light weeks don't reset you.
-- **Paces come from your current race time,** using Jack Daniels' VDOT model: easy at about 62-70% of your VDOT, tempo at 88%, intervals at 97.5%. Heart-rate limits stay as a backstop. When you run faster, update your current time and every pace moves with you.
+- **Paces come from your current race time,** using Jack Daniels' VDOT model: easy at about 62-70% of your VDOT, tempo at 88%, intervals at 97.5%. Heart-rate limits stay as a backstop: easy runs stay under 70% of your max (Zone 2), or under your own easy limit (`easyMaxHr`) if your easy runs that feel easy keep landing above it. When you run faster, update your current time and every pace moves with you.
 - **A Low readiness score only ever shortens or softens a run,** never lengthens it.
 
 ## Beginner mode

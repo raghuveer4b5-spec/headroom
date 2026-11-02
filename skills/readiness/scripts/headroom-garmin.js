@@ -571,14 +571,15 @@ const hardKm = Object.values(hard).reduce((s, t) => s + sizes[t], 0);
 const easyKm = easyDays.length ? Math.max(2.5, halfKm((target.km - longKm - hardKm) / easyDays.length)) : 0;
 const plannedKm = longKm + hardKm + easyKm * easyDays.length;
 if (plannedKm > target.km * 1.15) notes.push(`${plannedKm} km planned, above the build target of ${target.km} km because your recent long run sets the long-run distance; keep the easy runs genuinely easy`);
-const z2 = Math.round(0.7 * maxHr);
+const z2 = prefs.easyMaxHr || Math.round(0.7 * maxHr);
+const easyZone = prefs.easyMaxHr ? 'easy effort' : 'Zone 2';
 const t1 = Math.round(0.85 * maxHr);
 const t2 = Math.round(0.9 * maxHr);
 const paces = planPaces(prefs);
 const easyPace = paces ? ` at ${formatPace(paces.easyFast)}-${formatPace(paces.easySlow)}/km` : '';
 const text = {
-easy: (km) => `Easy ${km} km${easyPace}, Zone 2 (keep HR under ${z2} bpm)`,
-long: (km) => `Long easy run ${km} km${easyPace}, Zone 2 (under ${z2} bpm)`,
+easy: (km) => `Easy ${km} km${easyPace}, ${easyZone} (keep HR under ${z2} bpm)`,
+long: (km) => `Long easy run ${km} km${easyPace}, ${easyZone} (under ${z2} bpm)`,
 intervals: () => paces
 ? `Intervals: 1.5 km warm-up, ${reps} x 1 km at ${formatPace(paces.interval)}/km with 2 min jog, 1 km cool-down`
 : `Intervals: 1.5 km warm-up, ${reps} x 1 km hard (effort 8/10) with 2 min jog, 1 km cool-down`,

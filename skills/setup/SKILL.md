@@ -94,6 +94,7 @@ Write `~/.headroom/config.json` (create the folder if needed):
 - `startDate` is the Monday of the current week; week numbers and the 10%-a-week build count from it. Keep the existing `startDate` when re-running setup unless the goal changed.
 - `baseWeeklyKm` is `weeklyRunKm4w` and `baseLongKm` is `longestRunKm4w` from the profile.
 - Beginner plans use `"mode": "beginner"`, `"stage"` from the starting-stage rule (`none` 1, `3min` 4, `5min` 6, `10min` 9; one lower with `injuryHistory`), `"injuryHistory"`, `runsPerWeek`, `longRunDay`, `liftDays`, `priority` and `startDate`, with no times. The Sunday job moves `stage` forward.
+- Optional `easyMaxHr` (bpm) replaces the default easy-run limit of 70% of max HR (Zone 2). Set it only when the user asks, or when their genuinely easy runs (RPE 2-3) keep averaging above the default; coaching ranges put easy running up to about 75-79% of max.
 - `currentTime` and `goalTime` are race times at the goal distance (`mm:ss`, or `h:mm:ss` for the half). Omit `currentTime` if the user doesn't know it. Paces in every session come from `currentTime`; when the user runs a faster race, update it so the paces move with them.
 
 ## 4. Show the plan

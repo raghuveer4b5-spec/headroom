@@ -45,3 +45,10 @@ test('sessions show paces when a current time is known, heart rate always', () =
   const without = buildWeek(plan, '2026-10-26', 196);
   assert.match(without.days.mon.run.text, /effort 8\/10/);
 });
+
+test('a runner-set easy limit replaces the Zone 2 cap on easy and long runs', () => {
+  const plan = { goal: '5k', runsPerWeek: 3, longRunDay: 'sat', liftDays: ['mon', 'wed', 'fri'], startDate: '2026-10-19', baseWeeklyKm: 12, baseLongKm: 9, easyMaxHr: 145 };
+  const w = buildWeek(plan, '2026-10-26', 196);
+  assert.match(w.days.thu.run.text, /, easy effort \(keep HR under 145 bpm\)$/);
+  assert.match(w.days.sat.run.text, /, easy effort \(under 145 bpm\)$/);
+});
